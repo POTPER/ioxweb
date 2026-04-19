@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-industrial-bg: #E4E3E0;
+  --color-industrial-fg: #141414;
+  --color-industrial-surface: #FFFFFF;
+  --color-industrial-warning: #EA580C;
+  --color-industrial-info: #2563EB;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-industrial-bg text-industrial-fg font-sans selection:bg-industrial-fg selection:text-industrial-bg;
+  }
+}
+
+@layer components {
+  .brutalist-card {
+    @apply border border-industrial-fg bg-industrial-surface p-6 shadow-[4px_4px_0px_0px_rgba(20,20,20,1)];
+  }
+  
+  .brutalist-button-primary {
+    @apply bg-industrial-fg text-industrial-bg px-4 py-2 uppercase tracking-[0.2em] text-[11px] font-bold hover:opacity-90 transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none;
+  }
+  
+  .brutalist-button-secondary {
+    @apply border border-industrial-fg bg-industrial-surface text-industrial-fg px-4 py-2 uppercase tracking-[0.2em] text-[11px] font-bold hover:bg-industrial-fg hover:text-industrial-bg transition-colors;
+  }
+
+  .technical-label {
+    @apply font-mono text-[10px] opacity-50 uppercase tracking-wider mb-1 block;
+  }
+
+  .technical-heading {
+    @apply text-sm font-bold uppercase tracking-widest border-b border-industrial-fg pb-2 mb-4;
+  }
+
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0.15em;
+  }
+
+  @keyframes breathing {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+  
+  .animate-breathing {
+    animation: breathing 2s ease-in-out infinite;
+  }
+}
+
+/* ── Wireframe Mode ── */
+body.wireframe {
+  background: #fff !important;
+}
+
+body.wireframe .brutalist-card {
+  border: 2px solid #141414 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  border-radius: 8px;
+}
+
+body.wireframe * {
+  box-shadow: none !important;
+}
+
+body.wireframe .animate-breathing {
+  animation: none !important;
+}
+
+body.wireframe header {
+  border-bottom: 2px solid #141414 !important;
+  background: #fff !important;
+}
+
+body.wireframe aside {
+  border-right: 2px solid #141414 !important;
+  background: #fff !important;
+}
