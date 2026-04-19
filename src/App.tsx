@@ -101,7 +101,7 @@ function AppInner() {
       setStepData(prev => ({ ...prev, [currentStep]: data }));
     }
     setCompletedSteps(prev => new Set(prev).add(currentStep));
-    if (currentStep === '7') setShowTransition(true);
+    if (currentStep === '7') { setCurrentStep('8'); return; }
     // Note: 步骤12 完成后不再自动触发 handleFinish，改由侧栏「提交本次实操」按钮手动提交
   };
 
@@ -293,167 +293,28 @@ function AppInner() {
           ))}
         </div>
 
-        {/* Tab Content */}
+        {/* Tab Content — PDF Viewer */}
         <div className="text-xs leading-relaxed max-h-[60vh] overflow-y-auto">
-          {materialTab === 'bg' && (
-            <div className="space-y-4">
-              <table className="w-full border-collapse">
-                <tbody>
-                  {[
-                    ['项目名称', 'XX市轨道交通X号线XX站深基坑工程'],
-                    ['基坑概况', '基坑长120m，宽25m，开挖深度20m，围护结构采用地下连续墙+内支撑体系'],
-                    ['监测要求', '根据设计要求，需在围护结构内侧布设测斜管，监测基坑开挖过程中围护结构的水平位移变化'],
-                    ['地质条件', '上部填土层5m，粉质黏土层8m，砂质粉土层7m，地下水位埋深3m'],
-                  ].map(([field, content]) => (
-                    <tr key={field} className="border-b border-industrial-fg/10">
-                      <td className="py-2 pr-4 font-bold whitespace-nowrap align-top w-24">{field}</td>
-                      <td className="py-2 opacity-80">{content}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {materialTab === 'instrument' && (
-            <div className="space-y-4">
-              <div className="bg-industrial-bg/30 border border-industrial-fg/10 p-3 mb-4">
-                <div className="font-bold text-sm mb-1">CX-READER V3.2 读数仪操作手册</div>
-                <div className="text-[10px] opacity-60">配套探头：CX-S2 型滑动式测斜仪探头 | 测量精度：±0.125mm/500mm</div>
-              </div>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-industrial-fg">
-                    <th className="py-2 pr-4 text-left font-bold w-32">章节</th>
-                    <th className="py-2 text-left font-bold">关键内容摘录</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['一、产品概述', 'CX-03E型滑动式测斜仪，用于监测土体或结构物的水平位移变化'],
-                    ['二、技术参数', '精度指标：±0.125mm/500mm；测量范围：±53°；探头长度500mm'],
-                    ['三、操作规程', '连接设备 → 选择测区 → 选择孔号 → 正测采集 → 反测采集 → 数据导出'],
-                    ['四、累计位移计算', '累计位移 = (正测 + 反测) / 2，从孔底逐段累加至孔口'],
-                    ['五、设备编号', 'YQ02125072，检定有效期至2027-01-15'],
-                  ].map(([chapter, content]) => (
-                    <tr key={chapter} className="border-b border-industrial-fg/10">
-                      <td className="py-2 pr-4 font-bold whitespace-nowrap align-top">{chapter}</td>
-                      <td className="py-2 opacity-80">{content}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="mt-4 space-y-3">
-                <h4 className="font-bold text-xs border-b border-industrial-fg/20 pb-1">标准作业流程</h4>
-                <div className="font-mono text-[10px] bg-industrial-bg/20 p-3 border border-industrial-fg/10 space-y-1">
-                  <div>① 开机 → 按电源键，LCD亮屏</div>
-                  <div>② 连接探头 → 5针线材插入测量口</div>
-                  <div>③ 设置测孔参数 → 测区、孔号、孔深</div>
-                  <div>④ 设置探头参数 → 方向(向上)、校正(0.00)、步长(0.5m)</div>
-                  <div>⑤ 现场准备 → 确认导轮方向(A+面向基坑侧)</div>
-                  <div>⑥ 正测 → 探头下放至管底 → 逐点上提采集</div>
-                  <div>⑦ 反测 → 旋转探头180° → 重复正测流程</div>
-                  <div>⑧ 检查数据 → 计算校验和</div>
-                  <div>⑨ 补测（如需要）→ 对异常深度重新采集</div>
-                  <div>⑩ 收工 → 提出探头、盖好管口、关机</div>
+          {(() => {
+            const pdfLabels: Record<string, string> = {
+              bg: '工程背景',
+              instrument: '仪器使用说明书',
+              tube: '测斜管使用说明书',
+              standard: '规范参考',
+            };
+            return (
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-industrial-fg/20 bg-industrial-bg/30 min-h-[50vh] p-8 space-y-4">
+                <FileText size={48} className="opacity-20" />
+                <div className="text-center space-y-1">
+                  <div className="font-bold text-sm tracking-wider">{pdfLabels[materialTab]}</div>
+                  <div className="text-[11px] opacity-50 font-mono">PDF 内容</div>
+                </div>
+                <div className="text-[10px] opacity-30 font-mono border border-industrial-fg/10 px-3 py-1.5 bg-white">
+                  管理员上传 PDF 后在此显示
                 </div>
               </div>
-
-            </div>
-          )}
-
-          {materialTab === 'tube' && (
-            <div className="space-y-4">
-              <div className="bg-industrial-bg/30 border border-industrial-fg/10 p-3 mb-4">
-                <div className="font-bold text-sm mb-1">CX-70A 测斜管使用手册</div>
-                <div className="text-[10px] opacity-60">材质：工程级ABS | 外径70mm / 内径58mm / 壁厚6mm | 管节长度2m</div>
-              </div>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-industrial-fg">
-                    <th className="py-2 pr-4 text-left font-bold w-32">章节</th>
-                    <th className="py-2 text-left font-bold">关键内容摘录</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['一、产品概述', 'PVC-U测斜管，内壁设有十字形导槽，用于引导测斜探头定向滑行'],
-                    ['二、技术参数', '外径70mm，内径58mm，壁厚6mm，管节长度2m'],
-                    ['三、安装说明', '管节间采用胶水粘接方式连接，连接时须保证相邻管节导槽对齐；底部安装底盖，底盖与管体胶水粘接'],
-                    ['四、导槽方向', '安装时应使一对导槽方向对准基坑变形的主方向（即垂直于围护结构）'],
-                    ['五、验收与保管', '(1) 到货后检查产品与装箱清单是否相符；(2) 轻拿轻放，切忌摔打碰撞；(3) 高精度测斜管应放在湿度小于85%的房间内保存，存放环境须干燥、通风；(4) 进场安装的测斜管，首先要对管体进行检验，扭曲变形的测斜管不允许进入安装程序'],
-                  ].map(([chapter, content]) => (
-                    <tr key={chapter} className="border-b border-industrial-fg/10">
-                      <td className="py-2 pr-4 font-bold whitespace-nowrap align-top">{chapter}</td>
-                      <td className="py-2 opacity-80">{content}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="mt-4 space-y-3">
-                <h4 className="font-bold text-xs border-b border-industrial-fg/20 pb-1">管体截面示意</h4>
-                <pre className="font-mono text-[10px] bg-industrial-bg/20 p-3 border border-industrial-fg/10 leading-relaxed">{`       A+ 导槽
-       ┃
-  ╔════╬════╗
-  ║         ║
-B+╫── 管腔 ──╫B-
-  ║         ║
-  ╚════╬════╝
-       ┃
-       A- 导槽`}</pre>
-                <div className="text-[10px] opacity-70 space-y-1">
-                  <div><strong>A+/A- 导槽对：</strong>垂直于围护结构方向，测量位移主方向</div>
-                  <div><strong>B+/B- 导槽对：</strong>平行于围护结构方向，测量位移次方向</div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {materialTab === 'standard' && (
-            <div className="space-y-4">
-              <h4 className="font-bold border-b border-industrial-fg/20 pb-1 mb-3">GB 50497-2019《建筑基坑工程监测技术标准》</h4>
-              <table className="w-full border-collapse mb-6">
-                <thead>
-                  <tr className="border-b-2 border-industrial-fg">
-                    <th className="py-2 pr-4 text-left font-bold w-36">条文</th>
-                    <th className="py-2 text-left font-bold">内容摘录</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['§6.1.5', '测斜管应在围护结构施工时预埋，管口应高出地面0.3~0.5m并加盖保护'],
-                    ['§6.4.3', '测斜管埋设后应进行通畅性检测，确保测斜探头能在管内全程顺畅升降'],
-                    ['§6.4.4', '基坑开挖前应进行初始值测量，作为后续各次测量的基准'],
-                  ].map(([code, content]) => (
-                    <tr key={code} className="border-b border-industrial-fg/10">
-                      <td className="py-2 pr-4 font-mono font-bold whitespace-nowrap align-top">{code}</td>
-                      <td className="py-2 opacity-80">{content}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <h4 className="font-bold border-b border-industrial-fg/20 pb-1 mb-3">JGJ 120-2012《建筑基坑支护技术规程》</h4>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-industrial-fg">
-                    <th className="py-2 pr-4 text-left font-bold w-36">条文</th>
-                    <th className="py-2 text-left font-bold">内容摘录</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-industrial-fg/10">
-                    <td className="py-2 pr-4 font-mono font-bold whitespace-nowrap align-top">§8.2.1</td>
-                    <td className="py-2 opacity-80">基坑监测点应布设在围护结构变形最大处及有代表性的部位</td>
-                  </tr>
-                </tbody>
-              </table>
-
-            </div>
-          )}
+            );
+          })()}
         </div>
       </Modal>
 

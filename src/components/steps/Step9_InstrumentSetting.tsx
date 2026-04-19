@@ -282,7 +282,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
       if (dir === 'up') setCursor(p => p > 0 ? p - 1 : menuItems.length - 1);
       if (dir === 'down') setCursor(p => p < menuItems.length - 1 ? p + 1 : 0);
       if (dir === 'ok') {
-        if (cursor === 0 && phase >= 3) {
+        if (cursor === 0) {
           // Start new measurement - clear phases 3-5
           initReadings();
           setMeasureType('forward');
@@ -661,7 +661,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
           <Header title="欢迎使用" />
           <div className="flex-1 space-y-0.5">
             {menuItems.map((item, i) => {
-              const locked = (i === 0 && phase < 3);
+              const locked = false;
               return <div key={i} className={cn(hl(i), locked && "opacity-30", "flex")}><span className="w-3 shrink-0">{cursor === i ? '>' : ''}</span><span>{item}</span></div>;
             })}
           </div>
