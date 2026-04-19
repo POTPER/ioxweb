@@ -27,10 +27,11 @@ export const WireframePlaceholder: React.FC<{
   children: React.ReactNode;
   className?: string;
   hotspots?: PlaceholderHotspot[];
-}> = ({ label, children, className, hotspots }) => {
+  forceWireframe?: boolean;
+}> = ({ label, children, className, hotspots, forceWireframe }) => {
   const { wireframeMode } = useWireframe();
 
-  if (!wireframeMode) return <>{children}</>;
+  if (!wireframeMode && !forceWireframe) return <>{children}</>;
 
   return (
     <div className={cn("relative bg-gray-100 border-2 border-dashed border-gray-400 min-h-[120px]", className)}>

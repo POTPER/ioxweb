@@ -116,6 +116,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
             <WireframePlaceholder
               label="img:施工现场鸟瞰场景图"
               className="aspect-[21/9]"
+              forceWireframe
               hotspots={[
                 ...areas.map(area => ({
                   id: area.id,
