@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import { StepId } from './types';
 import { 
   TechnicalPreparation, 
@@ -32,6 +32,7 @@ function AppInner() {
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
+  const [devVisible, setDevVisible] = useState(false);
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [showFrameworkGuide, setShowFrameworkGuide] = useState(false);
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
@@ -41,6 +42,17 @@ function AppInner() {
   const devPanelRef = useRef<HTMLDivElement>(null);
   const devDragOffset = useRef({ x: 0, y: 0 });
   const [devPos, setDevPos] = useState({ right: 20, bottom: 20 });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setDevVisible(v => !v);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleDevDragStart = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
@@ -489,7 +501,7 @@ B+╫── 管腔 ──╫B-
       {showMultiPeriodChart && <MultiPeriodChart onClose={() => setShowMultiPeriodChart(false)} />}
 
       {/* DEV Floating Panel */}
-      <div
+      {devVisible && <div
         ref={devPanelRef}
         className="fixed z-[200] flex flex-col items-end space-y-2"
         style={{ right: devPos.right, bottom: devPos.bottom }}
@@ -544,7 +556,7 @@ B+╫── 管腔 ──╫B-
         >
           DEV
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
