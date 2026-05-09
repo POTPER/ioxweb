@@ -102,7 +102,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
   const [probeRotation, setProbeRotation] = useState(0); // 0 / 90 / 180 / 270
   const [rotationConfirmed, setRotationConfirmed] = useState(false);
   const wheelDirection: 'A+' | 'A-' | null = rotationConfirmed
-    ? (probeRotation === 0 ? 'A+' : probeRotation === 180 ? 'A-' : null)
+    ? (probeRotation === 180 ? 'A-' : 'A+')
     : null;
   const [cableAlignment, setCableAlignment] = useState<'N' | 'S' | 'E' | 'W' | null>(null);
   const [pendingAlignment, setPendingAlignment] = useState<'N' | 'S' | 'E' | 'W' | null>(null);
@@ -324,7 +324,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
     } else if (lcdScreen === 'confirm-fwd' || lcdScreen === 'confirm-rev') {
       if (dir === 'ok') {
         // Check if field setup is complete
-        if (!wheelDirection || !cableAlignment || !monitorInterval) return;
+        if (!rotationConfirmed || !cableAlignment || !monitorInterval) return;
         const type = lcdScreen === 'confirm-fwd' ? 'forward' : 'reverse';
         // Capture setup choices for final scoring (state may be reset before submit)
         if (type === 'forward') {
