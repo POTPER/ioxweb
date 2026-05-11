@@ -48,9 +48,19 @@
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.05); }
   }
+
+  @keyframes rotate-y {
+    0% { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+  }
   
   .animate-breathing {
     animation: breathing 2s ease-in-out infinite;
+  }
+
+  .animate-rotate-y {
+    animation: rotate-y 1.2s linear infinite;
+    transform-style: preserve-3d;
   }
 }
 

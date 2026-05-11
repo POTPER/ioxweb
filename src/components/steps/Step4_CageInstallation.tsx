@@ -6,6 +6,7 @@ import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { SectionDiagram } from '../diagrams/SectionDiagram';
 import { ElevationDiagram } from '../diagrams/ElevationDiagram';
+import { TrainingHotspotButton } from '../TrainingInteractionButtons';
 import { cageInstallationScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -211,46 +212,21 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
 
             {/* Bottom: 4 scheme selectors in a horizontal row */}
             <div className="border-t border-industrial-fg/10 px-4 py-3 flex items-center justify-center gap-4">
-                {wireframeMode ? (
-                  heightHotspots.map(h => {
-                    const isSelected = answers.height === h.id;
-                    return (
-                      <button
-                        key={h.id}
-                        onClick={() => handleHotspotClick('height', h.id)}
-                        className={cn(
-                          "px-3 py-1.5 text-xs border transition-all",
-                          isSelected
-                            ? "border-green-600 text-green-700 font-bold bg-green-50"
-                            : "border-gray-300 text-gray-600 bg-white hover:border-gray-400",
-                          completed['height'] && !isSelected && "opacity-30"
-                        )}
-                      >
-                        {h.title}
-                      </button>
-                    );
-                  })
-                ) : (
-                  heightHotspots.map(h => {
-                    const isSelected = answers.height === h.id;
-                    return (
-                      <button
-                        key={h.id}
-                        onClick={() => handleHotspotClick('height', h.id)}
-                        className={cn(
-                          "min-w-20 h-8 px-3 border-2 flex items-center justify-center text-xs transition-all",
-                          isSelected
-                            ? "border-industrial-fg bg-industrial-fg text-white font-bold"
-                            : "border-industrial-fg/30 bg-white hover:border-industrial-fg",
-                          completed['height'] && !isSelected && "opacity-30"
-                        )}
-                      >
-                        {h.title}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+              {heightHotspots.map(h => {
+                const isSelected = answers.height === h.id;
+                return (
+                  <TrainingHotspotButton
+                    key={h.id}
+                    label={h.title}
+                    selected={isSelected}
+                    muted={!!completed['height'] && !isSelected}
+                    absolute={false}
+                    className="min-w-20 h-8"
+                    onClick={() => handleHotspotClick('height', h.id)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </TechnicalCard>
       </div>

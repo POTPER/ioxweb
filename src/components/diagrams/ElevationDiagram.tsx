@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 
 /**
  * IMG-4-2 立面图-钢筋笼立面
@@ -87,38 +88,22 @@ export const ElevationDiagram: React.FC<ElevationDiagramProps> = ({
 
       {/* Hotspot: 绑扎间距 at ~1/3 */}
       {viewedBinding && (
-        <button
+        <TrainingQuestionButton
+          label={spacingLabel}
+          completed={completedSpacing}
           onClick={() => onQuestionClick('spacing')}
-          className="absolute z-20 flex items-center"
           style={{ top: '33%', left: 'calc(50% + 48px)', transform: 'translateY(-50%)' }}
-        >
-          <div className={cn(
-            "min-w-16 h-7 px-2 border-2 flex items-center justify-center text-[10px] font-bold transition-all whitespace-nowrap",
-            !completedSpacing
-              ? "border-yellow-500 bg-white text-yellow-700 animate-breathing"
-              : "border-green-600 bg-green-600 text-white"
-          )}>
-            {completedSpacing ? '✓' : '?'} {spacingLabel}
-          </div>
-        </button>
+        />
       )}
 
       {/* Hotspot: 绑扎松紧 at ~2/3 */}
       {viewedBinding && (
-        <button
+        <TrainingQuestionButton
+          label={tightnessLabel}
+          completed={completedTightness}
           onClick={() => onQuestionClick('tightness')}
-          className="absolute z-20 flex items-center"
           style={{ top: '66%', left: 'calc(50% + 48px)', transform: 'translateY(-50%)' }}
-        >
-          <div className={cn(
-            "min-w-16 h-7 px-2 border-2 flex items-center justify-center text-[10px] font-bold transition-all whitespace-nowrap",
-            !completedTightness
-              ? "border-yellow-500 bg-white text-yellow-700 animate-breathing"
-              : "border-green-600 bg-green-600 text-white"
-          )}>
-            {completedTightness ? '✓' : '?'} {tightnessLabel}
-          </div>
-        </button>
+        />
       )}
     </div>
   );

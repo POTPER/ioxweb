@@ -3,6 +3,7 @@ import { TechnicalCard, Button, Modal } from '../Common';
 import { AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useWireframe } from '../WireframeContext';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { initialMeasurementScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, initialMeasurementDataRows } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -82,17 +83,12 @@ export const InitialMeasurement: React.FC<{ onNext: (data: any) => void }> = ({ 
                 completed.includes(h.id) ? "border-green-500/50" : "border-industrial-fg/20"
               )}
               headerAction={
-                <button 
+                <TrainingQuestionButton
+                  label={h.question?.label || ''}
+                  completed={completed.includes(h.id)}
+                  absolute={false}
                   onClick={() => openQuestion(h.id)}
-                  className={cn(
-                    "px-2 py-0.5 text-[10px] font-bold border transition-colors",
-                    completed.includes(h.id) 
-                      ? "bg-green-500 text-white border-green-600" 
-                      : "bg-industrial-info text-white border-industrial-info/80 animate-pulse"
-                  )}
-                >
-                  {`${completed.includes(h.id) ? '[v]' : '[?]'} ${h.question?.label || ''}`}
-                </button>
+                />
               }
             >
               {/* Condition card: text paragraphs */}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { TechnicalCard, Button, Modal } from '../Common';
 import { cn } from '../../lib/utils';
-import { CheckCircle2 } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { TrainingHotspotButton, TrainingQuestionButton } from '../TrainingInteractionButtons';
+
 import { materialPickupScoringConfig } from '../../data/scoringConfig';
 import { getUiLabel, trainingStepsByStepId } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -125,57 +126,29 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 
                 {/* Hotspots */}
                 {areas.map((area) => (
-                  <button
-                    key={area.id}
-                    onClick={() => handleAreaClick(area.id)}
-                    className={cn(
-                      "absolute min-w-20 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
-                      confirmedArea === area.id ? "scale-110" : "hover:scale-125",
-                      confirmedArea && confirmedArea !== area.id && "opacity-50"
-                    )}
-                    style={{ left: area.x, top: area.y }}
-                  >
-                    <div className={cn(
-                      "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
-                      confirmedArea && "hidden"
-                    )} />
-                    <div className={cn(
-                      "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
-                      confirmedArea === area.id ? "bg-green-500 text-white" : 
-                      selectedArea === area.id ? "bg-industrial-fg text-white" : "bg-white"
-                    )}>
-                      {area.name}
-                    </div>
-
-                    {/* [?]/[v] Marker */}
+                  <React.Fragment key={area.id}>
+                    <TrainingHotspotButton
+                      label={area.name}
+                      selected={confirmedArea === area.id}
+                      active={selectedArea === area.id}
+                      muted={!!confirmedArea && confirmedArea !== area.id}
+                      className="min-w-20 h-8 -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: area.x, top: area.y }}
+                      onClick={() => handleAreaClick(area.id)}
+                    />
                     {confirmedArea === area.id && (
-                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 flex items-center space-x-2 whitespace-nowrap z-30">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTempInspectionAnswer(inspectionAnswer);
-                            setShowInspectionModal(true);
-                          }}
-                          className={cn(
-                            "flex items-center space-x-1 px-2 py-1 rounded-full border border-industrial-fg text-[10px] font-bold transition-all",
-                            inspectionAnswer ? "bg-green-100 text-green-700" : "bg-white text-industrial-fg animate-breathing"
-                          )}
-                        >
-                          {inspectionAnswer ? (
-                            <>
-                              <CheckCircle2 size={12} />
-                              <span>{getUiLabel('prep.material', 'inspectionActionEmpty')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="w-4 h-4 rounded-full bg-industrial-fg text-white flex items-center justify-center text-[8px]">?</span>
-                              <span>请完成领料检查</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <TrainingQuestionButton
+                        label={inspectionAnswer ? getUiLabel('prep.material', 'inspectionActionEmpty') : '请完成领料检查'}
+                        completed={!!inspectionAnswer}
+                        style={{ left: `calc(${area.x} + 32px)`, top: area.y, transform: 'translateY(-50%)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTempInspectionAnswer(inspectionAnswer);
+                          setShowInspectionModal(true);
+                        }}
+                      />
                     )}
-                  </button>
+                  </React.Fragment>
                 ))}
               </div>
             </WireframePlaceholder>

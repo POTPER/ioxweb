@@ -3,6 +3,7 @@ import { TechnicalCard, Button, Modal } from '../Common';
 import { AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { TrainingHotspotButton, TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { tubeAssemblyScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, trainingStepsByStepId } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -154,49 +155,26 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
               </div>
 
               {assemblyHotspots.map(hotspot => (
-                <button
+                <TrainingHotspotButton
                   key={hotspot.id}
-                  type="button"
-                  onClick={() => handleHotspotClick(hotspot.id)}
-                  className={cn(
-                    "absolute min-w-24 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
-                    viewed[hotspot.id] ? "scale-110" : "hover:scale-125",
-                    hasViewedAny && !viewed[hotspot.id] && "opacity-50"
-                  )}
+                  label={hotspot.label}
+                  selected={!!viewed[hotspot.id]}
+                  muted={hasViewedAny && !viewed[hotspot.id]}
+                  className="min-w-24 h-8 -translate-x-1/2 -translate-y-1/2"
                   style={{ left: hotspot.x || '50%', top: hotspot.y || '50%' }}
-                >
-                  <div className={cn(
-                    "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
-                    hasViewedAny && "hidden"
-                  )} />
-                  <div className={cn(
-                    "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
-                    viewed[hotspot.id] ? "bg-green-500 text-white" : "bg-white"
-                  )}>
-                    {hotspot.label}
-                  </div>
-
-                </button>
+                  onClick={() => handleHotspotClick(hotspot.id)}
+                />
               ))}
 
               {assemblyHotspots.filter(hotspot => viewed[hotspot.id]).map(hotspot => (
-                <button
+                <TrainingQuestionButton
                   key={`${hotspot.id}-question`}
-                  type="button"
-                  onClick={() => openQuestion(hotspot.id)}
-                  className={cn(
-                    "absolute -translate-y-1/2 z-30 flex items-center space-x-1 px-2 py-1 rounded-full border border-industrial-fg text-[10px] font-bold whitespace-nowrap transition-all",
-                    completed[hotspot.id] ? "bg-green-100 text-green-700" : "bg-white text-industrial-fg",
-                    !completed[hotspot.id] && "animate-breathing"
-                  )}
+                  label={questionLabels[hotspot.id as keyof typeof questionLabels]}
+                  completed={!!completed[hotspot.id]}
+                  className="-translate-y-1/2 z-30"
                   style={getQuestionButtonPosition(hotspot)}
-                >
-                  <span className={cn(
-                    "w-4 h-4 rounded-full flex items-center justify-center text-[8px]",
-                    completed[hotspot.id] ? "bg-green-600 text-white" : "bg-industrial-fg text-white"
-                  )}>{completed[hotspot.id] ? '✓' : '?'}</span>
-                  <span>{questionLabels[hotspot.id as keyof typeof questionLabels]}</span>
-                </button>
+                  onClick={() => openQuestion(hotspot.id)}
+                />
               ))}
             </div>
           </WireframePlaceholder>

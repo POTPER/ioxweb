@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
+import { TrainingHotspotButton } from '../TrainingInteractionButtons';
 
 /**
  * IMG-4-1 截面图-基坑与钢筋笼
@@ -42,22 +42,15 @@ export const SectionDiagram: React.FC<SectionDiagramProps> = ({ hotspots, select
         {hotspots.map((h, i) => {
           const isSelected = selectedId === h.id;
           return (
-            <div key={h.id} className="absolute z-10 flex flex-col items-center" style={positions[i]}>
-              <button
-                onClick={() => onHotspotClick(h.id)}
-                className={cn(
-                  "min-w-28 h-10 px-3 border-2 flex items-center justify-center transition-all whitespace-nowrap",
-                  isSelected
-                    ? "bg-industrial-fg border-industrial-fg text-white"
-                    : "bg-white border-industrial-fg/30 hover:border-industrial-fg animate-breathing"
-                )}
-              >
-                <span className="text-[11px] font-bold">{h.title}</span>
-              </button>
-              {isSelected && (
-                <span className="text-[9px] font-bold text-green-600 mt-0.5 whitespace-nowrap">已安装</span>
-              )}
-            </div>
+            <TrainingHotspotButton
+              key={h.id}
+              label={h.title}
+              selected={isSelected}
+              muted={!!selectedId && !isSelected}
+              className="min-w-28 h-10"
+              style={positions[i]}
+              onClick={() => onHotspotClick(h.id)}
+            />
           );
         })}
 

@@ -5,6 +5,8 @@ import { cn } from '../../lib/utils';
 import { ChevronRight } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { TrainingHotspotButton, TrainingQuestionButton } from '../TrainingInteractionButtons';
+
 import { inspectionScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -127,15 +129,11 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
             <div className="grid grid-cols-4 gap-12 w-full max-w-4xl relative z-10 mt-12">
               {holes.map(h => (
                 <div key={h.id} className="flex flex-col items-center space-y-2">
-                  {/* Hole Visual + Right Marker */}
-                  <div 
-                    onClick={() => handleHotspotClick(h.id)}
-                    className={cn(
-                      "w-20 h-20 border-2 flex items-center justify-center transition-all cursor-pointer relative group",
-                      viewed[h.id] ? "border-industrial-fg bg-industrial-fg/5" : "border-industrial-fg/30 hover:border-industrial-fg/60 animate-breathing"
-                    )}
-                  >
-                      {h.id === 'CX-01' && (
+                  <div className="relative w-20 h-20">
+                    <TrainingHotspotButton
+                      label={(
+                        <>
+                          {h.id === 'CX-01' && (
                         <div className="relative w-12 h-12 border border-industrial-fg/20 rounded-full flex items-center justify-center">
                           <div className="absolute top-0 w-px h-4 bg-industrial-fg/20"></div>
                           <div className="absolute rotate-45 flex flex-col items-center">
@@ -158,7 +156,7 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
                           </div>
                         </div>
                       )}
-                      {h.id === 'CX-03' && (
+                          {h.id === 'CX-03' && (
                         <div className="relative w-12 h-12 border border-industrial-fg/20 rounded-full bg-industrial-fg/10 overflow-hidden flex items-center justify-center">
                           <div className="absolute inset-0 bg-industrial-fg/20 flex flex-wrap gap-1 p-1">
                             {[...Array(16)].map((_, i) => <div key={i} className="w-2 h-2 bg-industrial-fg/30 rounded-sm" />)}
@@ -166,7 +164,7 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
                           <span className="text-[8px] font-bold relative z-10 bg-white/80 px-1">CONCRETE</span>
                         </div>
                       )}
-                      {h.id === 'CX-04' && (
+                          {h.id === 'CX-04' && (
                         <div className="relative w-12 h-12 border border-industrial-fg/20 rounded-full flex items-center justify-center">
                           <div className="flex flex-col items-center">
                             <ChevronRight size={10} className="-rotate-90 text-industrial-fg" />
@@ -175,30 +173,23 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
                           </div>
                         </div>
                       )}
+                          <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-bold bg-white/80 mx-1 text-industrial-fg">{h.title}</span>
+                        </>
+                      )}
+                      selected={!!viewed[h.id]}
+                      absolute={false}
+                      className="w-20 h-20 min-w-20"
+                      onClick={() => handleHotspotClick(h.id)}
+                    />
 
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-industrial-fg text-white text-[8px] px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                        {getUiLabel('prep.inspection', 'detailsTooltip')}
-                      </div>
-
-                      {/* Marker: overlapping right border */}
-                      {viewed[h.id] && !completed[h.id] ? (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); openQuestion(h.id); }}
-                          className="absolute -right-16 top-1/2 -translate-y-1/2 min-w-20 h-8 px-3 bg-white border-2 border-industrial-fg flex items-center justify-center text-industrial-fg text-[11px] font-bold animate-breathing z-20 whitespace-nowrap"
-                          title={getUiLabel('prep.inspection', 'judgeAction')}
-                        >
-                          ? {h.judgeLabel}
-                        </button>
-                      ) : completed[h.id] ? (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openQuestion(h.id); }}
-                          className="absolute -right-16 top-1/2 -translate-y-1/2 min-w-20 h-8 px-3 bg-green-600 border-2 border-green-600 flex items-center justify-center text-white text-[11px] font-bold hover:opacity-70 transition-opacity z-20 whitespace-nowrap"
-                          title={getUiLabel('prep.inspection', 'processedLabel')}
-                        >
-                          ✓ {h.judgeLabel}
-                        </button>
-                      ) : null}
-                      <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-bold bg-white/80 mx-1">{h.title}</span>
+                    {viewed[h.id] && (
+                      <TrainingQuestionButton
+                        label={h.judgeLabel}
+                        completed={!!completed[h.id]}
+                        className="-right-16 top-1/2 -translate-y-1/2"
+                        onClick={(e) => { e.stopPropagation(); openQuestion(h.id); }}
+                      />
+                    )}
                   </div>
                 </div>
               ))}

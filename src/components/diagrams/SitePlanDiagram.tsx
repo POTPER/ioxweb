@@ -1,6 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
-import { CheckCircle2 } from 'lucide-react';
+import { TrainingHotspotButton, TrainingQuestionButton } from '../TrainingInteractionButtons';
 
 /**
  * IMG-1-1 基坑支护平面布置图
@@ -60,65 +59,35 @@ export const SitePlanDiagram: React.FC<SitePlanDiagramProps> = ({
 
       {/* Hotspots */}
       {hotspots.map((hp) => (
-        <button
-          key={hp.id}
-          onClick={() => onHotspotClick(hp.id)}
-          onMouseEnter={() => onHotspotHover?.(hp.id)}
-          onMouseLeave={() => onHotspotHover?.(null)}
-          className={cn(
-            "absolute min-w-16 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
-            confirmedId === hp.id ? "scale-110" : "hover:scale-125",
-            confirmedId && confirmedId !== hp.id && "opacity-50"
-          )}
-          style={{ left: hp.x, top: hp.y }}
-        >
-          <div className={cn(
-            "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
-            confirmedId && "hidden"
-          )} />
-          <div className={cn(
-            "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
-            confirmedId === hp.id ? "bg-green-500 text-white" : 
-            selectedId === hp.id ? "bg-industrial-fg text-white" : "bg-white"
-          )}>
-            {hp.name}
-          </div>
-          
-          {/* [?]/[v] Marker */}
+        <React.Fragment key={hp.id}>
+          <TrainingHotspotButton
+            label={hp.name}
+            selected={confirmedId === hp.id}
+            active={selectedId === hp.id}
+            muted={!!confirmedId && confirmedId !== hp.id}
+            className="-translate-x-1/2 -translate-y-1/2"
+            style={{ left: hp.x, top: hp.y }}
+            onClick={() => onHotspotClick(hp.id)}
+            onMouseEnter={() => onHotspotHover?.(hp.id)}
+            onMouseLeave={() => onHotspotHover?.(null)}
+          />
           {confirmedId === hp.id && (
-            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 flex items-center space-x-2 whitespace-nowrap z-30">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSpacingClick?.();
-                }}
-                className={cn(
-                  "flex items-center space-x-1 px-2 py-1 rounded-full border border-industrial-fg text-[10px] font-bold transition-all",
-                  spacing ? "bg-green-100 text-green-700" : "bg-white text-industrial-fg animate-breathing"
-                )}
-              >
-                {spacing ? (
-                  <>
-                    <CheckCircle2 size={12} />
-                    <span>监测间距已配置 ({spacing}m)</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-4 h-4 rounded-full bg-industrial-fg text-white flex items-center justify-center text-[8px]">?</span>
-                    <span>请布置监测间距</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <TrainingQuestionButton
+              label={spacing ? `监测间距已配置 (${spacing}m)` : '请布置监测间距'}
+              completed={!!spacing}
+              style={{ left: `calc(${hp.x} + 32px)`, top: hp.y, transform: 'translateY(-50%)' }}
+              onClick={() => onSpacingClick?.()}
+            />
           )}
-
-          {/* Tooltip on hover */}
           {hoveredId === hp.id && !confirmedId && (
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-industrial-fg text-white px-2 py-1 text-[9px] whitespace-nowrap rounded shadow-lg z-30">
+            <div
+              className="absolute bg-industrial-fg text-white px-2 py-1 text-[9px] whitespace-nowrap rounded shadow-lg z-30"
+              style={{ left: hp.x, top: hp.y, transform: 'translate(-50%, -180%)' }}
+            >
               {hp.name}
             </div>
           )}
-        </button>
+        </React.Fragment>
       ))}
     </div>
   );

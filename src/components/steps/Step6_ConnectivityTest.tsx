@@ -5,6 +5,8 @@ import { cn } from '../../lib/utils';
 import { ChevronRight } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { TrainingHotspotButton, TrainingQuestionButton } from '../TrainingInteractionButtons';
+
 import { connectivityScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
@@ -136,45 +138,34 @@ export const ConnectivityTest: React.FC<{ onNext: (data: any) => void }> = ({ on
           <div className="grid grid-cols-4 gap-12 w-full max-w-4xl relative z-10 mt-12">
             {holes.map(h => (
               <div key={h.id} className="flex flex-col items-center space-y-2">
-                {/* Hole Visual - All look OK in 3b */}
-                <div 
-                  onClick={() => handleHotspotClick(h.id)}
-                  className={cn(
-                    "w-20 h-20 border-2 flex items-center justify-center transition-all cursor-pointer relative group",
-                    viewed[h.id] ? "border-industrial-fg bg-industrial-fg/5" : "border-industrial-fg/30 hover:border-industrial-fg/60 animate-breathing"
-                  )}
-                >
-                  <div className="relative w-12 h-12 border border-industrial-fg/20 rounded-full flex items-center justify-center">
-                    <div className="flex flex-col items-center">
-                      <ChevronRight size={10} className="-rotate-90 text-industrial-fg" />
-                      <div className="w-px h-6 bg-industrial-fg"></div>
-                      <span className="text-[8px] font-bold mt-1">A+</span>
-                    </div>
-                  </div>
+                <div className="relative w-20 h-20">
+                  <TrainingHotspotButton
+                    label={(
+                      <>
+                        <div className="relative w-12 h-12 border border-industrial-fg/20 rounded-full flex items-center justify-center">
+                          <div className="flex flex-col items-center">
+                            <ChevronRight size={10} className="-rotate-90 text-industrial-fg" />
+                            <div className="w-px h-6 bg-industrial-fg"></div>
+                            <span className="text-[8px] font-bold mt-1">A+</span>
+                          </div>
+                        </div>
+                        <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-bold bg-white/80 mx-1 text-industrial-fg">{h.displayName}</span>
+                      </>
+                    )}
+                    selected={!!viewed[h.id]}
+                    absolute={false}
+                    className="w-20 h-20 min-w-20"
+                    onClick={() => handleHotspotClick(h.id)}
+                  />
 
-                  {/* Marker: overlapping right border */}
-                  {viewed[h.id] && !completed[h.id] ? (
-                    <button 
+                  {viewed[h.id] && (
+                    <TrainingQuestionButton
+                      label={h.question?.label}
+                      completed={!!completed[h.id]}
+                      className="-right-20 top-1/2 -translate-y-1/2"
                       onClick={(e) => { e.stopPropagation(); openQuestion(h.id); }}
-                      className="absolute -right-32 -top-4 min-w-32 h-9 px-3 bg-emerald-500/90 border-2 border-white shadow-[2px_2px_0px_0px_rgba(20,20,20,0.25)] flex items-center justify-center gap-2 text-white text-[13px] font-bold animate-breathing z-20 whitespace-nowrap"
-                      title={getUiLabel('prep.connectivity', 'judgeAction')}
-                    >
-                      <span className="w-6 h-6 rounded-full bg-red-600 border-2 border-white flex items-center justify-center text-white text-base leading-none">?</span>
-                      <span>{h.question?.label}</span>
-                      <ChevronRight size={16} strokeWidth={3} />
-                    </button>
-                  ) : completed[h.id] ? (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openQuestion(h.id); }}
-                      className="absolute -right-32 -top-4 min-w-32 h-9 px-3 bg-green-600 border-2 border-white shadow-[2px_2px_0px_0px_rgba(20,20,20,0.25)] flex items-center justify-center gap-2 text-white text-[13px] font-bold hover:opacity-80 transition-opacity z-20 whitespace-nowrap"
-                      title="判定完成"
-                    >
-                      <span className="w-6 h-6 rounded-full bg-white text-green-600 border-2 border-white flex items-center justify-center text-sm leading-none">✓</span>
-                      <span>{h.question?.label}</span>
-                      <ChevronRight size={16} strokeWidth={3} />
-                    </button>
-                  ) : null}
-                  <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-bold bg-white/80 mx-1">{h.displayName}</span>
+                    />
+                  )}
                 </div>
               </div>
             ))}
