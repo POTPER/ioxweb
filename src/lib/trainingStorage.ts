@@ -68,6 +68,22 @@ export const saveStepResult = (stepId: string, result: any) => {
   });
 };
 
+export const saveStepProgress = (stepId: string, result: any) => {
+  const session = loadTrainingSession();
+
+  saveTrainingSession({
+    ...session,
+    submissions: {
+      ...session.submissions,
+      [stepId]: result?.submission ?? result,
+    },
+    results: {
+      ...session.results,
+      [stepId]: result,
+    },
+  });
+};
+
 export const loadStepDraft = <T = any>(stepId: string): T | undefined => {
   return loadTrainingSession().drafts[stepId] as T | undefined;
 };

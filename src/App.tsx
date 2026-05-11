@@ -23,7 +23,7 @@ import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { loadTrainingSession, saveStepResult, clearTrainingSession } from './lib/trainingStorage';
+import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
 
 function AppInner() {
@@ -101,6 +101,13 @@ function AppInner() {
     // Note: 步骤12 完成后不再自动触发 handleFinish，改由侧栏「提交本次实操」按钮手动提交
   };
 
+  const handleStepProgress = (data: any) => {
+    if (data) {
+      setStepData(prev => ({ ...prev, [currentStep]: data }));
+      saveStepProgress(currentStep, data);
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case '1': return <TechnicalPreparation onNext={handleStepComplete} />;
@@ -111,7 +118,7 @@ function AppInner() {
       case '6': return <ConnectivityTest onNext={handleStepComplete} />;
       case '7': return <InitialMeasurement onNext={handleStepComplete} />;
       case '8': return <PrepAndSafety onNext={handleStepComplete} />;
-      case '9': return <InstrumentSetting onNext={handleStepComplete} devAutoStart={devSkipToMeasure} />;
+      case '9': return <InstrumentSetting onNext={handleStepComplete} onProgress={handleStepProgress} devAutoStart={devSkipToMeasure} />;
       case '10': return <DataProcessing onNext={handleStepComplete} />;
       case '11': return <ReportCompilation onNext={handleStepComplete} />;
       case '12': return <MultiPeriodAnalysis onNext={handleStepComplete} />;

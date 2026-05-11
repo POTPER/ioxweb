@@ -1,30 +1,26 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { User, Cloud } from 'lucide-react';
-import { Weather, Equipment, weatherOptions, safetyOptions, instrumentOptions } from './types';
+import { User } from 'lucide-react';
 
 interface CharacterPreviewProps {
-  selectedWeather: string | null;
-  selectedSafety: string[];
-  selectedInstrument: string | null;
+  selectedWeatherLabel?: string;
+  selectedSafetyLabels: string[];
+  selectedInstrumentLabel?: string;
 }
 
 export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
-  selectedWeather,
-  selectedSafety,
-  selectedInstrument
+  selectedWeatherLabel,
+  selectedSafetyLabels,
+  selectedInstrumentLabel
 }) => {
-  const weatherData = weatherOptions.find(w => w.id === selectedWeather);
-  const instrumentData = instrumentOptions.find(i => i.id === selectedInstrument);
-
   return (
     <div className="relative border-2 border-industrial-fg bg-white overflow-hidden shadow-[4px_4px_0px_0px_rgba(20,20,20,1)]">
       {/* Background Layer */}
       <div 
         className="absolute inset-0 transition-all duration-700 bg-cover bg-center opacity-40"
         style={{ 
-          backgroundImage: weatherData ? `url(${weatherData.bgImage})` : 'none',
-          backgroundColor: !selectedWeather ? '#f3f4f6' : 'transparent'
+          backgroundImage: selectedWeatherLabel ? `linear-gradient(135deg, rgba(251,191,36,0.25), rgba(34,197,94,0.18))` : 'none',
+          backgroundColor: !selectedWeatherLabel ? '#f3f4f6' : 'transparent'
         }}
       />
       
@@ -39,32 +35,37 @@ export const CharacterPreview: React.FC<CharacterPreviewProps> = ({
             </div>
           </div>
 
-          {/* Safety Layers */}
-          {selectedSafety.map(id => {
-            const opt = safetyOptions.find(s => s.id === id);
-            return (
-              <motion.img
-                key={id}
-                initial={{ opacity: 0, scale: 1.1 }}
-                animate={{ opacity: 1, scale: 1 }}
-                src={opt?.layerImage}
-                alt={opt?.name}
-                className="absolute inset-0 z-20 w-full h-full object-contain pointer-events-none"
-                referrerPolicy="no-referrer"
-              />
-            );
-          })}
+          <div className="absolute left-2 top-2 z-20 space-y-1">
+            {selectedWeatherLabel && (
+              <motion.div
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="border border-industrial-fg bg-white px-2 py-1 font-mono text-[9px] font-bold"
+              >
+                环境: {selectedWeatherLabel}
+              </motion.div>
+            )}
+            {selectedSafetyLabels.map(label => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="border border-green-600 bg-green-50 px-2 py-1 font-mono text-[9px] font-bold text-green-700"
+              >
+                防护: {label}
+              </motion.div>
+            ))}
+          </div>
 
-          {/* Instrument Layer */}
-          {selectedInstrument && (
-            <motion.img
-              key={selectedInstrument}
+          {selectedInstrumentLabel && (
+            <motion.div
+              key={selectedInstrumentLabel}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              src={instrumentData?.layerImage}
-              className="absolute inset-0 z-30 w-full h-full object-contain pointer-events-none"
-              referrerPolicy="no-referrer"
-            />
+              className="absolute right-2 bottom-2 z-30 border-2 border-industrial-fg bg-yellow-100 px-3 py-2 font-mono text-[10px] font-black shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]"
+            >
+              仪器: {selectedInstrumentLabel}
+            </motion.div>
           )}
         </div>
       </div>

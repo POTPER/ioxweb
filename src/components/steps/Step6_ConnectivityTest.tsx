@@ -270,7 +270,18 @@ export const ConnectivityTest: React.FC<{ onNext: (data: any) => void }> = ({ on
                       selectedOption === opt.value
                         ? "bg-industrial-bg/20 border-industrial-bg/30 text-industrial-bg/60"
                         : "bg-gray-200 border-gray-300 text-gray-400"
-                    )}>[图片]</div>
+                    )}>
+                      {opt.image ? (
+                        <img
+                          src={opt.image}
+                          alt={opt.label}
+                          className="w-full h-full object-cover grayscale"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <span>[图片]</span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>

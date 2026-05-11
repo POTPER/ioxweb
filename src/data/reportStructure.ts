@@ -63,4 +63,11 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     name: '测前准备与安全防护',
     maxScore: 6,
   },
+  'acq.instrument': {
+    stepId: 'acq.instrument',
+    reportStepId: '4.2.2-2',
+    outlineCode: 'Q09',
+    name: '读数仪设置与数据采集',
+    maxScore: 26,
+  },
 };

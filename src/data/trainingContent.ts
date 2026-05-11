@@ -6,7 +6,7 @@ import uiLabelsCsv from './training/uiLabels.csv?raw';
 import initialMeasurementDataCsv from './training/initialMeasurementData.csv?raw';
 import resourcesCsv from './training/resources.csv?raw';
 import { reportStepMap } from './reportStructure';
-import type { ChoiceQuestionConfig, FillRangeQuestionConfig, QuestionConfig, StepScoringConfig } from './scoringConfig';
+import type { ChoiceQuestionConfig, FillRangeQuestionConfig, FillValueQuestionConfig, QuestionConfig, StepScoringConfig } from './scoringConfig';
 
 export type TrainingStepContent = {
   stepId: string;
@@ -52,6 +52,7 @@ export type TrainingOptionContent = {
   label: string;
   desc: string;
   hotspotId?: string;
+  imageResourceId?: string;
 };
 
 export type InitialMeasurementDataRow = {
@@ -144,6 +145,15 @@ export const getTrainingResourcesByStep = (stepId: string) => trainingResources.
 
 export const getTrainingResourceByDisplayLabel = (displayLabel: string) => trainingResources.find(resource => resource.displayLabel === displayLabel);
 
+const getResourceImageSource = (resourceId?: string) => {
+  if (!resourceId) {
+    return undefined;
+  }
+
+  const resource = getTrainingResource(resourceId);
+  return resource?.status && resource.status !== 'placeholder' ? resource.status : undefined;
+};
+
 export const getUiLabel = (stepId: string, key: string, values?: Record<string, string | number>) => {
   const template = uiLabelRows.find(row => row.stepId === stepId && row.key === key)?.text || '';
 
@@ -163,6 +173,8 @@ const toChoiceQuestion = (question: TrainingQuestionContent): ChoiceQuestionConf
       code: option.code,
       label: option.label,
       desc: option.desc,
+      imageResourceId: option.imageResourceId || undefined,
+      image: getResourceImageSource(option.imageResourceId),
       x: hotspot?.x,
       y: hotspot?.y,
     };
@@ -172,7 +184,7 @@ const toChoiceQuestion = (question: TrainingQuestionContent): ChoiceQuestionConf
     questionId: question.questionId,
     label: question.label,
     prompt: question.prompt,
-    type: 'singleChoice',
+    type: question.type === 'multiChoice' ? 'multiChoice' : 'singleChoice',
     maxScore: Number(question.maxScore),
     correctAnswer: question.correctAnswer,
     analysis: question.analysis,
@@ -191,6 +203,17 @@ const toFillRangeQuestion = (question: TrainingQuestionContent): FillRangeQuesti
   analysis: question.analysis,
 });
 
+const toFillValueQuestion = (question: TrainingQuestionContent): FillValueQuestionConfig => ({
+  questionId: question.questionId,
+  label: question.label,
+  prompt: question.prompt,
+  type: 'fillValue',
+  maxScore: Number(question.maxScore),
+  correctAnswer: question.correctAnswer,
+  unit: question.unit || undefined,
+  analysis: question.analysis,
+});
+
 export const buildScoringConfig = (stepId: string): StepScoringConfig => {
   const step = trainingStepsByStepId[stepId];
   const reportMeta = reportStepMap[stepId];
@@ -205,7 +228,11 @@ export const buildScoringConfig = (stepId: string): StepScoringConfig => {
 
   const questions = trainingQuestions
     .filter(question => question.stepId === stepId)
-    .map<QuestionConfig>(question => question.type === 'singleChoice' ? toChoiceQuestion(question) : toFillRangeQuestion(question));
+    .map<QuestionConfig>(question => {
+      if (question.type === 'fillRange') return toFillRangeQuestion(question);
+      if (question.type === 'fillValue') return toFillValueQuestion(question);
+      return toChoiceQuestion(question);
+    });
 
   return {
     stepId: step.stepId,

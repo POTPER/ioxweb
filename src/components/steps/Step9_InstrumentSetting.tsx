@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { AlertCircle } from 'lucide-react';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { acqInstrumentScoringConfig } from '../../data/scoringConfig';
+import { calculateStepScore, type UserAnswerValue } from '../../lib/scoring';
 
 // --- Types ---
 interface Reading {
@@ -57,8 +59,14 @@ const sensorJitter = (elapsed: number, totalDuration: number, amplitude: number)
 const ANOMALY_DEPTH = 12.5;
 const CHECKSUM_THRESHOLD = 5;
 const TOTAL_DEPTH = 20;
+const orientationByRotation: Record<number, 'A' | 'B' | 'C' | 'D'> = { 0: 'A', 90: 'B', 180: 'C', 270: 'D' };
 
-export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoStart?: boolean }> = ({ onNext, devAutoStart }) => {
+const getReadingQuestionId = (type: 'forward' | 'reverse', depth: number) => {
+  const depthKey = String(depth).replace('.', '_');
+  return `acq.instrument.${type}${depthKey}`;
+};
+
+export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgress?: (data: any) => void; devAutoStart?: boolean }> = ({ onNext, onProgress, devAutoStart }) => {
   // --- Phase & device state ---
   const [phase, setPhase] = useState<Phase>(1);
   const [isPoweredOn, setIsPoweredOn] = useState(false);
@@ -67,10 +75,12 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
   const [selectedCable, setSelectedCable] = useState<string | null>(null);
   const [showCableModal, setShowCableModal] = useState(false);
   const [pendingCable, setPendingCable] = useState<string | null>(null);
+  const [previewCableImage, setPreviewCableImage] = useState<{ src: string; alt: string } | null>(null);
   const [startupOrder, setStartupOrder] = useState<string[]>([]);
   const [cableBeforeBoot, setCableBeforeBoot] = useState<boolean | null>(null);
   const [cleanupOrder, setCleanupOrder] = useState<string[]>([]);
   const [cleanupDone, setCleanupDone] = useState({ power: false, cable: false });
+  const [recordedAnswers, setRecordedAnswers] = useState<Record<string, UserAnswerValue>>({});
 
   // --- LCD state ---
   const [lcdScreen, setLcdScreen] = useState<LcdScreen>('off');
@@ -116,23 +126,52 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
 
   // --- Scoring tracking ---
   const stabilityScores = useRef<Record<string, any>>({});
+  const lockedProcessAnswers = useRef<Set<string>>(new Set());
   const timerRef = useRef<any>(null);
 
-  // --- Cable options ---
-  const cableOptions = [
-    { id: 'A', name: '5针圆形插头线', desc: '5针圆形航空插头，适配滑动式测斜仪探头接口。' },
-    { id: 'B', name: '3针圆形插头线', desc: '3针圆形航空插头，适配固定式传感器串联接口。' },
-    { id: 'C', name: '7针矩形插头线', desc: '7针矩形接口，适配水位计数据传输。' },
-    { id: 'D', name: '9针D-sub插头线', desc: '9针D-sub串口线，适配PC数据导出。' },
-  ];
+  const cableQuestion = acqInstrumentScoringConfig.questions.find(question => question.questionId === 'acq.instrument.cable');
+  const cableOptions = cableQuestion?.type === 'singleChoice' ? cableQuestion.options : [];
 
   const menuItems = ['1. 开始新的测量', '2. 测孔参数设置', '3. 探头设置', '4. 补测数据点', '5. 时间设置'];
+
+  const recordAnswer = useCallback((questionId: string, answer: UserAnswerValue) => {
+    setRecordedAnswers(prev => ({ ...prev, [questionId]: answer }));
+  }, []);
+
+  const recordLockedAnswer = useCallback((questionId: string, answer: UserAnswerValue) => {
+    if (lockedProcessAnswers.current.has(questionId)) return;
+    lockedProcessAnswers.current.add(questionId);
+    recordAnswer(questionId, answer);
+  }, [recordAnswer]);
+
+  const buildScoreData = (answers: Record<string, UserAnswerValue>) => {
+    const scoreResult = calculateStepScore(
+      acqInstrumentScoringConfig,
+      Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))
+    );
+
+    return {
+      ...scoreResult,
+      scores: Object.fromEntries(scoreResult.answers.map(answer => [answer.id, answer.score])),
+      readings,
+      params,
+      probe,
+      remeasureParams,
+      recordedAnswers: answers,
+    };
+  };
 
   // --- DEV auto-start ---
   useEffect(() => {
     if (!devAutoStart) return;
     setSelectedCable('A');
     setCableBeforeBoot(true);
+    lockedProcessAnswers.current.add('acq.instrument.powerOrder');
+    setRecordedAnswers(prev => ({
+      ...prev,
+      'acq.instrument.cable': 'A',
+      'acq.instrument.powerOrder': 'connectBeforePower',
+    }));
     setIsPoweredOn(true);
     setIsConnected(true);
     setParams({ area: '03', hole: '06', depth: 20 });
@@ -160,6 +199,21 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
   useEffect(() => {
     if (paramsSaved && probeSaved && phase === 2) setPhase(3);
   }, [paramsSaved, probeSaved, phase]);
+
+  useEffect(() => {
+    if (Object.keys(recordedAnswers).length > 0) {
+      onProgress?.(buildScoreData(recordedAnswers));
+    }
+  }, [recordedAnswers]);
+
+  useEffect(() => {
+    if (cleanupDone.power && cleanupDone.cable) {
+      recordLockedAnswer(
+        'acq.instrument.cleanupOrder',
+        cleanupOrder[0] === '关闭电源' ? 'powerOffBeforeDisconnect' : 'disconnectBeforePowerOff'
+      );
+    }
+  }, [cleanupDone, cleanupOrder, recordLockedAnswer]);
 
   // --- Stabilization timer ---
   const startStabilize = useCallback((pointIndex: number, type: 'forward' | 'reverse') => {
@@ -191,6 +245,17 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
   // --- Generate all remaining auto-collect data ---
   const autoCollect = useCallback((type: 'forward' | 'reverse') => {
     setAutoCollecting(true);
+    setRecordedAnswers(prev => {
+      const next = { ...prev };
+      for (let d = TOTAL_DEPTH; d >= 0; d = +(d - probe.stepLength).toFixed(1)) {
+        let value = getReading(d, type);
+        if (type === 'reverse' && d === ANOMALY_DEPTH) {
+          value += 8;
+        }
+        next[getReadingQuestionId(type, d)] = value;
+      }
+      return next;
+    });
     setReadings(prev => {
       const updated = [...prev];
       for (let i = 0; i < updated.length; i++) {
@@ -235,7 +300,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
         setFieldUnlocked(false);
       }
     }, 1500);
-  }, []);
+  }, [probe.stepLength]);
 
   // --- Record a manual measurement point ---
   const recordManualPoint = useCallback(() => {
@@ -244,15 +309,17 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
     const depthVal = TOTAL_DEPTH - manualPoint * step;
     const key = `${measureType}-${manualPoint}`;
     stabilityScores.current[key] = { stable: isStable };
+    let measuredValue = getReading(depthVal, measureType);
+    if (measureType === 'reverse' && depthVal === ANOMALY_DEPTH) {
+      measuredValue += 8;
+    }
+    recordAnswer(getReadingQuestionId(measureType, depthVal), measuredValue);
 
     setReadings(prev => {
       const updated = [...prev];
       const idx = updated.findIndex(r => r.depth === depthVal);
       if (idx !== -1) {
-        let val = getReading(depthVal, measureType);
-        if (measureType === 'reverse' && depthVal === ANOMALY_DEPTH) {
-          val = val + 8; // 故意偏差，使校验和 |A+ + A-| 超过阈值
-        }
+        const val = measuredValue;
         if (measureType === 'forward') {
           updated[idx] = { ...updated[idx], forward: val };
         } else {
@@ -272,7 +339,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
       // Auto collect remaining
       autoCollect(measureType);
     }
-  }, [measureType, manualPoint, isStable, probe.stepLength, startStabilize, autoCollect]);
+  }, [measureType, manualPoint, isStable, probe.stepLength, autoCollect, recordAnswer]);
 
   // --- LCD button handler ---
   const handleNav = (dir: 'up' | 'down' | 'ok' | 'back') => {
@@ -330,6 +397,9 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
         if (type === 'forward') {
           stabilityScores.current['fwd-wheel'] = wheelDirection;
           stabilityScores.current['fwd-alignment'] = cableAlignment;
+          recordAnswer('acq.instrument.forwardOrientation', orientationByRotation[probeRotation] ?? null);
+          recordAnswer('acq.instrument.forwardAlignment', cableAlignment);
+          recordAnswer('acq.instrument.interval', monitorInterval);
         }
         setMeasureType(type);
         setLcdScreen('collect');
@@ -381,6 +451,9 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
     if (dir === 'down') setCursor(p => p < 3 ? p + 1 : 0);
     if (dir === 'ok') {
       if (cursor === 3) {
+        recordAnswer('acq.instrument.area', params.area);
+        recordAnswer('acq.instrument.hole', params.hole);
+        recordAnswer('acq.instrument.depth', params.depth);
         setParamsSaved(true);
         setLcdScreen('main');
         setCursor(1);
@@ -402,10 +475,10 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
         setProbe(p => ({ ...p, calibration: +Math.max(-9.99, Math.min(9.99, p.calibration + inc)).toFixed(2) }));
       }
       if (editingField === 2 && (dir === 'up' || dir === 'down')) {
-        const opts = [0.5, 1.0, 2.0];
+        const opts = [0.5, 1.0, 1.5, 2.0];
         setProbe(p => {
           const i = opts.indexOf(p.stepLength);
-          const next = dir === 'up' ? (i + 1) % 3 : (i - 1 + 3) % 3;
+          const next = dir === 'up' ? (i + 1) % opts.length : (i - 1 + opts.length) % opts.length;
           return { ...p, stepLength: opts[next] };
         });
       }
@@ -416,6 +489,8 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
     if (dir === 'down') setCursor(p => p < 3 ? p + 1 : 0);
     if (dir === 'ok') {
       if (cursor === 3) {
+        recordAnswer('acq.instrument.probeDirection', probe.direction);
+        recordAnswer('acq.instrument.stepLength', probe.stepLength);
         setProbeSaved(true);
         setLcdScreen('main');
         setCursor(2);
@@ -460,6 +535,9 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
 
   const executeRemeasure = () => {
     if (remeasureParams.depth === ANOMALY_DEPTH) setFoundAnomaly(true);
+    recordAnswer('acq.instrument.remeasureGroup', remeasureParams.group);
+    recordAnswer('acq.instrument.remeasureDepth', remeasureParams.depth);
+    recordAnswer('acq.instrument.remeasureDirection', remeasureParams.direction);
     setLcdScreen('collect');
     setAutoCollecting(true);
     setTimeout(() => {
@@ -469,6 +547,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
         if (idx !== -1) {
           const dir = remeasureParams.direction === '反测' ? 'reverse' : 'forward';
           const newVal = getReading(remeasureParams.depth, dir);
+          recordAnswer(getReadingQuestionId(dir, remeasureParams.depth), newVal);
           if (remeasureParams.direction === '反测') {
             updated[idx] = { ...updated[idx], reverse: newVal };
           } else {
@@ -488,7 +567,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
 
   // --- Power handler ---
   const handlePower = () => {
-    if (phase === 6) {
+    if (phase >= 5) {
       // Cleanup phase
       if (isPoweredOn) {
         setIsPoweredOn(false);
@@ -502,6 +581,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
       setIsPoweredOn(true);
       setBooting(true);
       setCableBeforeBoot(isConnected);
+      recordLockedAnswer('acq.instrument.powerOrder', isConnected ? 'connectBeforePower' : 'powerBeforeConnect');
       setStartupOrder(prev => prev.includes('开机') ? prev : [...prev, '开机']);
       setTimeout(() => {
         setBooting(false);
@@ -515,7 +595,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
 
   // --- Cable connect/disconnect ---
   const handleCableClick = () => {
-    if (phase === 6) {
+    if (phase >= 5) {
       // Cleanup: disconnect
       if (isConnected) {
         setIsConnected(false);
@@ -530,6 +610,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
   const handleCableConfirm = () => {
     if (!pendingCable) return;
     setSelectedCable(pendingCable);
+    recordAnswer('acq.instrument.cable', pendingCable);
     setIsConnected(true);
     setShowCableModal(false);
     setPendingCable(null);
@@ -559,79 +640,12 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
 
   const enterCleanupPhase = () => setPhase(6);
 
-  // --- Scoring calculation ---
-  const calculateScores = () => {
-    const s: Record<string, number> = {};
-    // 2-2-1: Startup order (connect first = 1pt)
-    s['2-2-1'] = cableBeforeBoot === true ? 1 : 0;
-    // 2-2-2: Cable selection
-    s['2-2-2'] = selectedCable === 'A' ? 1 : 0;
-    // 2-2-3~5: Params
-    s['2-2-3'] = params.area === '03' ? 1 : 0;
-    s['2-2-4'] = params.hole === '06' ? 1 : 0;
-    s['2-2-5'] = params.depth === 20 ? 1 : 0;
-    // 2-2-6: Direction
-    s['2-2-6'] = probe.direction === '向上' ? 2 : 0;
-    // 2-2-7: Step length
-    s['2-2-7'] = probe.stepLength === 0.5 ? 1 : 0;
-    // 2-2-8: Wheel direction (forward)
-    s['2-2-8'] = stabilityScores.current['fwd-wheel'] === 'A+' ? 1 : 0;
-    // 2-2-9: Forward alignment
-    s['2-2-9'] = stabilityScores.current['fwd-alignment'] === 'W' ? 1 : 0;
-    // 2-2-10: Monitor interval
-    s['2-2-10'] = monitorInterval === '0.5' ? 1 : 0;
-    // 2-2-11: Forward point 1 stability
-    const fwd0 = stabilityScores.current['forward-0'];
-    s['2-2-11'] = fwd0?.stable ? 2 : (fwd0 ? 1 : 0);
-    // 2-2-12: Forward points 2-5
-    let fwd25 = 0;
-    for (let i = 1; i <= 4; i++) {
-      const k = stabilityScores.current[`forward-${i}`];
-      fwd25 += k?.stable ? 1 : (k ? 0.5 : 0);
-    }
-    s['2-2-12'] = fwd25;
-    // 2-2-13: Reverse alignment
-    s['2-2-13'] = cableAlignment === 'W' ? 1 : 0;
-    // 2-2-14: Reverse point 1
-    const rev0 = stabilityScores.current['reverse-0'];
-    s['2-2-14'] = rev0?.stable ? 1 : (rev0 ? 0.5 : 0);
-    // 2-2-15: Reverse points 2-5
-    let rev25 = 0;
-    for (let i = 1; i <= 4; i++) {
-      const k = stabilityScores.current[`reverse-${i}`];
-      rev25 += k?.stable ? 0.5 : 0;
-    }
-    s['2-2-15'] = rev25;
-    // 2-2-16: Reverse complete
-    s['2-2-16'] = phase >= 5 ? 1 : 0;
-    // 2-2-17: Found anomaly
-    s['2-2-17'] = foundAnomaly ? 1 : 0;
-    // 2-2-18: All checksums within threshold
-    const allOk = readings.every(r => r.checksum === null || Math.abs(r.checksum) <= CHECKSUM_THRESHOLD);
-    s['2-2-18'] = allOk ? 3 : 0;
-    // 2-2-19: Cleanup order
-    if (cleanupDone.power && cleanupDone.cable) {
-      s['2-2-19'] = cleanupOrder[0] === '关闭电源' ? 1 : 0.5;
-    } else {
-      s['2-2-19'] = 0;
-    }
-    return s;
-  };
-
   const handleSubmit = () => {
-    const scores = calculateScores();
-    const total = Object.values(scores).reduce((a, b) => a + b, 0);
-    onNext({
-      stepId: 'step9',
-      stepName: '读数仪设置与数据采集',
-      submittedAt: new Date().toISOString(),
-      scores,
-      totalScore: total,
-      maxScore: 27,
-      readings,
-      params,
-      probe,
-    });
+    const finalAnswers: Record<string, UserAnswerValue> = {
+      ...recordedAnswers,
+    };
+
+    onNext(buildScoreData(finalAnswers));
   };
 
   // --- LCD Render ---
@@ -875,6 +889,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
             </div>
           </TechnicalCard>
           </WireframePlaceholder>
+
         </div>
 
         {/* Right: Plane + Device */}
@@ -1060,28 +1075,48 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
       </Modal>
 
       {/* Cable selection modal — Mode C' (图文卡片答题浮层) */}
-      <Modal isOpen={showCableModal} onClose={handleCableCancel} title="线材选型" maxWidth="max-w-2xl">
+      <Modal isOpen={showCableModal} onClose={handleCableCancel} title={cableQuestion?.label || '线材选型'} maxWidth="max-w-2xl">
         <div className="space-y-4">
-          <p className="text-xs font-bold">请选择与读数仪测量接口匹配的线材。</p>
+          <p className="text-xs font-bold">{cableQuestion?.prompt || '请选择与读数仪测量接口匹配的线材。'}</p>
           <div className="space-y-2">
             {cableOptions.map(opt => (
               <button
-                key={opt.id}
-                onClick={() => setPendingCable(opt.id)}
+                key={opt.value}
+                onClick={() => setPendingCable(opt.value)}
                 className={cn(
-                  "w-full text-left p-4 border transition-all flex items-start space-x-4",
-                  pendingCable === opt.id
-                    ? "border-industrial-fg bg-industrial-fg text-white"
-                    : "border-industrial-fg/10 hover:border-industrial-fg/30"
+                  "w-full text-left px-4 py-2.5 border-2 text-xs transition-colors flex items-center justify-between gap-3",
+                  pendingCable === opt.value
+                    ? "bg-industrial-fg text-industrial-bg border-industrial-fg"
+                    : "border-industrial-fg/20 hover:border-industrial-fg/40"
                 )}
               >
-                <div className="w-4 h-4 rounded-full border-2 mt-1 flex items-center justify-center flex-shrink-0" style={{ borderColor: pendingCable === opt.id ? 'white' : '' }}>
-                  {pendingCable === opt.id && <div className="w-2 h-2 bg-white rounded-full" />}
-                </div>
-                <div className="w-16 h-12 bg-industrial-bg/40 border border-current/20 flex items-center justify-center text-2xl flex-shrink-0">🔌</div>
-                <div className="flex-1">
-                  <div className="text-xs font-bold mb-1">{opt.id}. {opt.name}</div>
-                  <p className={cn("text-[10px] leading-relaxed", pendingCable === opt.id ? "opacity-80" : "opacity-60")}>{opt.desc}</p>
+                <span>{opt.code}. {opt.label}</span>
+                <div className={cn(
+                  "w-14 h-10 border flex items-center justify-center text-[9px] font-mono flex-shrink-0",
+                  pendingCable === opt.value
+                    ? "bg-industrial-bg/20 border-industrial-bg/30 text-industrial-bg/60"
+                    : "bg-gray-200 border-gray-300 text-gray-400"
+                )}>
+                  {opt.image ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreviewCableImage({ src: opt.image!, alt: opt.label });
+                      }}
+                      className="w-full h-full"
+                      aria-label={`放大查看${opt.label}`}
+                    >
+                      <img
+                        src={opt.image}
+                        alt={opt.label}
+                        className="w-full h-full object-cover grayscale"
+                        referrerPolicy="no-referrer"
+                      />
+                    </button>
+                  ) : (
+                    <span>[图片]</span>
+                  )}
                 </div>
               </button>
             ))}
@@ -1089,6 +1124,24 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; devAutoS
           <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
             <Button onClick={handleCableConfirm} disabled={!pendingCable} className="px-12">确认</Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!previewCableImage}
+        onClose={() => setPreviewCableImage(null)}
+        title={previewCableImage?.alt || '线材图片'}
+        maxWidth="max-w-2xl"
+      >
+        <div className="border-2 border-industrial-fg bg-white p-3 flex items-center justify-center">
+          {previewCableImage && (
+            <img
+              src={previewCableImage.src}
+              alt={previewCableImage.alt}
+              className="max-h-[70vh] w-full object-contain"
+              referrerPolicy="no-referrer"
+            />
+          )}
         </div>
       </Modal>
 

@@ -1,12 +1,19 @@
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { Weather, Equipment } from './types';
 import { useWireframe } from '../../WireframeContext';
+
+export type PrepSafetyOption = {
+  id: string;
+  code: string;
+  name: string;
+  desc: string;
+  image?: string;
+};
 
 interface OptionSectionProps {
   title: string;
-  options: (Weather | Equipment)[];
+  options: PrepSafetyOption[];
   selectedIds: string | string[] | null;
   onCardClick: (id: string) => void;
   typeLabel: string;
@@ -36,6 +43,7 @@ export const OptionSection: React.FC<OptionSectionProps> = ({
         <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center">
           {title}
         </h3>
+        <span className="text-[9px] font-mono opacity-50 uppercase">{statusLabel || typeLabel}</span>
       </div>
       <div className="grid grid-cols-4 gap-1.5">
         {options.map(opt => (
@@ -60,13 +68,17 @@ export const OptionSection: React.FC<OptionSectionProps> = ({
               </>
             ) : (
               <>
-                <div className="aspect-square bg-gray-100 mb-1 overflow-hidden">
-                  <img 
-                    src={opt.image} 
-                    alt={opt.name} 
-                    className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
-                    referrerPolicy="no-referrer" 
-                  />
+                <div className="aspect-square bg-gray-100 mb-1 overflow-hidden border border-industrial-fg/10 flex items-center justify-center">
+                  {opt.image ? (
+                    <img 
+                      src={opt.image} 
+                      alt={opt.name} 
+                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : (
+                    <span className="font-mono text-[9px] font-bold opacity-40">[图片]</span>
+                  )}
                 </div>
                 <div className="text-[9px] font-bold uppercase leading-tight truncate w-full">{opt.name}</div>
               </>

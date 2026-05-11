@@ -1,98 +1,130 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Modal } from '../Common';
-import { cn } from '../../lib/utils';
-import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
-import { weatherOptions, safetyOptions, instrumentOptions, Weather, Equipment } from './prep-and-safety/types';
+import { acqSafetyScoringConfig } from '../../data/scoringConfig';
+import type { ChoiceQuestionConfig } from '../../data/scoringConfig';
+import { getUiLabel } from '../../data/trainingContent';
+import { calculateStepScore } from '../../lib/scoring';
 import { CharacterPreview } from './prep-and-safety/CharacterPreview';
 import { OptionSection } from './prep-and-safety/OptionSection';
 
+const stepId = 'acq.safety';
+
+const sectionMeta: Record<string, {
+  titleKey: string;
+  typeKey: string;
+  statusKey: string;
+  historyKey: string;
+}> = {
+  'acq.safety.weather': {
+    titleKey: 'weatherSectionTitle',
+    typeKey: 'weatherTypeLabel',
+    statusKey: 'weatherConfirmedLabel',
+    historyKey: 'weather',
+  },
+  'acq.safety.equipment': {
+    titleKey: 'safetySectionTitle',
+    typeKey: 'safetyTypeLabel',
+    statusKey: 'safetySelectedLabel',
+    historyKey: 'safety',
+  },
+  'acq.safety.instrument': {
+    titleKey: 'instrumentSectionTitle',
+    typeKey: 'instrumentTypeLabel',
+    statusKey: 'instrumentEquippedLabel',
+    historyKey: 'instrument',
+  },
+};
+
+type ActiveModal = {
+  questionId: string;
+  optionId: string;
+};
+
 export const PrepAndSafety: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
-  const [selectedWeather, setSelectedWeather] = useState<string | null>(null);
-  const [selectedSafety, setSelectedSafety] = useState<string[]>([]);
-  const [selectedInstrument, setSelectedInstrument] = useState<string | null>(null);
-  
-  const { wireframeMode } = useWireframe();
-  const [activeModal, setActiveModal] = useState<{ type: 'weather' | 'safety' | 'instrument'; id: string } | null>(null);
-  const [browseHistory, setBrowseHistory] = useState<{ weather: string[]; safety: string[]; instrument: string[] }>({
+  const questions = useMemo(
+    () => acqSafetyScoringConfig.questions.filter((question): question is ChoiceQuestionConfig => (
+      question.type === 'singleChoice' || question.type === 'multiChoice'
+    )),
+    []
+  );
+
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string | string[]>>({});
+  const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
+  const [browseHistory, setBrowseHistory] = useState<Record<string, string[]>>({
     weather: [],
     safety: [],
-    instrument: []
+    instrument: [],
   });
 
-  const handleCardClick = (type: 'weather' | 'safety' | 'instrument', id: string) => {
-    setActiveModal({ type, id });
+  const getQuestion = (questionId: string) => questions.find(question => question.questionId === questionId);
+
+  const getOptionLabel = (question: ChoiceQuestionConfig, value?: string) => (
+    question.options.find(option => option.value === value)?.label || ''
+  );
+
+  const getSelectedValue = (question: ChoiceQuestionConfig) => {
+    const answer = selectedAnswers[question.questionId];
+    return Array.isArray(answer) ? null : answer || null;
+  };
+
+  const getSelectedValues = (question: ChoiceQuestionConfig) => {
+    const answer = selectedAnswers[question.questionId];
+    return Array.isArray(answer) ? answer : answer ? [answer] : [];
+  };
+
+  const handleCardClick = (questionId: string, optionId: string) => {
+    const meta = sectionMeta[questionId];
+    setActiveModal({ questionId, optionId });
     setBrowseHistory(prev => ({
       ...prev,
-      [type]: [...prev[type], id]
+      [meta.historyKey]: [...(prev[meta.historyKey] || []), optionId],
     }));
   };
 
-  const handleEquip = () => {
+  const handleSelect = () => {
     if (!activeModal) return;
-    const { type, id } = activeModal;
-    if (type === 'weather') {
-      setSelectedWeather(id);
-    } else if (type === 'safety') {
-      setSelectedSafety(prev => 
-        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-      );
-    } else if (type === 'instrument') {
-      setSelectedInstrument(id);
-    }
+
+    const question = getQuestion(activeModal.questionId);
+    if (!question) return;
+
+    setSelectedAnswers(prev => {
+      if (question.type === 'multiChoice') {
+        const current = Array.isArray(prev[question.questionId]) ? prev[question.questionId] : [];
+        const next = current.includes(activeModal.optionId)
+          ? current.filter(value => value !== activeModal.optionId)
+          : [...current, activeModal.optionId];
+
+        return {
+          ...prev,
+          [question.questionId]: next,
+        };
+      }
+
+      return {
+        ...prev,
+        [question.questionId]: activeModal.optionId,
+      };
+    });
     setActiveModal(null);
   };
 
   const handleSubmit = () => {
-    const scoreInstrument = selectedInstrument === 'A' ? 2 : 0;
-    const isSafetyCorrect = selectedSafety.length === 2 && 
-                           selectedSafety.includes('1') && 
-                           selectedSafety.includes('2');
-    const scoreSafety = isSafetyCorrect ? 2 : 0;
-    const scoreWeather = selectedWeather === 'A' ? 2 : 0;
-
-    const weatherData = weatherOptions.find(w => w.id === selectedWeather);
+    const result = calculateStepScore(
+      acqSafetyScoringConfig,
+      questions.map(question => ({
+        questionId: question.questionId,
+        answer: selectedAnswers[question.questionId],
+      }))
+    );
 
     onNext({
-      stepId: 'step8',
-      stepName: '测前准备与安全防护',
-      submittedAt: new Date().toISOString(),
-      totalScore: scoreInstrument + scoreSafety + scoreWeather,
-      maxScore: 6,
-      answers: [
-        {
-          questionId: '2-1-1',
-          type: 'equipment',
-          label: '测量仪器',
-          userAnswer: instrumentOptions.find(i => i.id === selectedInstrument)?.name || '未选',
-          correctAnswer: '滑动式测斜仪',
-          score: scoreInstrument,
-          maxScore: 2
-        },
-        {
-          questionId: '2-1-2',
-          type: 'equipment-multi',
-          label: '安全防护',
-          userAnswer: selectedSafety.map(id => safetyOptions.find(s => s.id === id)?.name),
-          correctAnswer: ['安全帽', '反光背心'],
-          score: scoreSafety,
-          maxScore: 2
-        },
-        {
-          questionId: '2-1-3',
-          type: 'environment',
-          label: '环境确认',
-          userAnswer: weatherData?.name || '未选',
-          correctAnswer: '多云微风',
-          score: scoreWeather,
-          maxScore: 2
-        }
-      ],
+      ...result,
       browseHistory,
     });
   };
 
-  const canDepart = selectedWeather !== null && selectedSafety.length > 0 && selectedInstrument !== null;
+  const canDepart = questions.every(question => getSelectedValues(question).length > 0);
 
   useEffect(() => {
     if (canDepart) {
@@ -100,57 +132,64 @@ export const PrepAndSafety: React.FC<{ onNext: (data: any) => void }> = ({ onNex
     }
   }, [canDepart]);
 
-  const activeOption = activeModal ? (
-    activeModal.type === 'weather' ? weatherOptions.find(o => o.id === activeModal.id) :
-    activeModal.type === 'safety' ? safetyOptions.find(o => o.id === activeModal.id) :
-    instrumentOptions.find(o => o.id === activeModal.id)
-  ) : null;
+  const activeQuestion = activeModal ? getQuestion(activeModal.questionId) : undefined;
+  const activeOption = activeQuestion?.options.find(option => option.value === activeModal?.optionId);
+  const weatherQuestion = getQuestion('acq.safety.weather');
+  const safetyQuestion = getQuestion('acq.safety.equipment');
+  const instrumentQuestion = getQuestion('acq.safety.instrument');
+  const selectedWeatherLabel = weatherQuestion ? getOptionLabel(weatherQuestion, getSelectedValue(weatherQuestion) || undefined) : undefined;
+  const selectedSafetyLabels = safetyQuestion ? getSelectedValues(safetyQuestion).map(value => getOptionLabel(safetyQuestion, value)) : [];
+  const selectedInstrumentLabel = instrumentQuestion ? getOptionLabel(instrumentQuestion, getSelectedValue(instrumentQuestion) || undefined) : undefined;
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WireframePlaceholder label="L1-L4: 人物预览区（背景+角色+装备图层叠加）" className="min-h-0">
           <CharacterPreview 
-            selectedWeather={selectedWeather}
-            selectedSafety={selectedSafety}
-            selectedInstrument={selectedInstrument}
+            selectedWeatherLabel={selectedWeatherLabel}
+            selectedSafetyLabels={selectedSafetyLabels}
+            selectedInstrumentLabel={selectedInstrumentLabel}
           />
         </WireframePlaceholder>
 
         <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-          <OptionSection 
-            title="环境确认"
-            options={weatherOptions}
-            selectedIds={selectedWeather}
-            onCardClick={(id) => handleCardClick('weather', id)}
-            typeLabel="单选"
-            statusLabel={selectedWeather ? `已确认: ${weatherOptions.find(w => w.id === selectedWeather)?.name}` : undefined}
-          />
+          {questions.map(question => {
+            const meta = sectionMeta[question.questionId];
+            const selectedValues = getSelectedValues(question);
+            const selectedValue = getSelectedValue(question);
+            const statusLabel = selectedValues.length > 0
+              ? getUiLabel(stepId, meta.statusKey, {
+                value: question.type === 'multiChoice'
+                  ? selectedValues.length
+                  : getOptionLabel(question, selectedValue || undefined),
+              })
+              : undefined;
 
-          <OptionSection 
-            title="安全防护"
-            options={safetyOptions}
-            selectedIds={selectedSafety}
-            onCardClick={(id) => handleCardClick('safety', id)}
-            typeLabel="多选"
-            statusLabel={selectedSafety.length > 0 ? `已选: ${selectedSafety.length} 项` : undefined}
-          />
-
-          <OptionSection 
-            title="测量仪器"
-            options={instrumentOptions}
-            selectedIds={selectedInstrument}
-            onCardClick={(id) => handleCardClick('instrument', id)}
-            typeLabel="单选"
-            statusLabel={selectedInstrument ? `已装备: ${instrumentOptions.find(i => i.id === selectedInstrument)?.name}` : undefined}
-          />
+            return (
+              <OptionSection
+                key={question.questionId}
+                title={getUiLabel(stepId, meta.titleKey) || question.label}
+                options={question.options.map(option => ({
+                  id: option.value,
+                  code: option.code,
+                  name: option.label,
+                  desc: option.desc,
+                  image: option.image,
+                }))}
+                selectedIds={question.type === 'multiChoice' ? selectedValues : selectedValue}
+                onCardClick={(id) => handleCardClick(question.questionId, id)}
+                typeLabel={getUiLabel(stepId, meta.typeKey)}
+                statusLabel={statusLabel}
+              />
+            );
+          })}
         </div>
       </div>
 
       <Modal
         isOpen={activeModal !== null}
         onClose={() => setActiveModal(null)}
-        title={activeOption?.name || ''}
+        title={activeOption?.label || ''}
       >
         {activeOption && (
           <div className="space-y-6">
@@ -160,17 +199,17 @@ export const PrepAndSafety: React.FC<{ onNext: (data: any) => void }> = ({ onNex
 
             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-industrial-fg/10">
               <Button 
-                onClick={handleEquip}
+                onClick={handleSelect}
                 className="w-full"
               >
-                选择
+                {getUiLabel(stepId, 'selectButton')}
               </Button>
               <Button 
                 variant="secondary" 
                 onClick={() => setActiveModal(null)}
                 className="w-full"
               >
-                取消
+                {getUiLabel(stepId, 'cancelButton')}
               </Button>
             </div>
           </div>

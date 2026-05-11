@@ -87,6 +87,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     '4.2.1-2-2': 'prep.assembly',
     '4.2.1-2-3': 'prep.cage',
     '4.2.1-3-1': 'prep.inspection',
+    '4.2.2-2': '9',
   };
 
   const getStep = (id: string) => {
@@ -110,7 +111,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
   const calculateModuleMaxScore = (stepIds: string[]) => {
     const maxScores: Record<string, number> = {
       'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, 'prep.inspection': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
-      '4.2.2-1': 4, '4.2.2-2': 21,
+      '4.2.2-1': 4, '4.2.2-2': 26,
       '4.2.3-1': 15, '4.2.3-2': 15, '4.2.3-3': 20
     };
     return stepIds.reduce((acc, id) => acc + (maxScores[id] || 0), 0);
@@ -191,7 +192,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
       values: [
         (m1Score / m1Max) || 0,
         ((getStep('4.2.1-3-1').score || 0) + (getStep('4.2.1-3-2').score || 0)) / 8 || 0,
-        (getStep('4.2.2-2').totalScore / 21) || 0,
+        (getStep('4.2.2-2').totalScore / 26) || 0,
         (getStep('4.2.2-1').score / 4) || 0,
         (getStep('4.2.3-2').totalScore / 15) || 0,
         (getStep('4.2.3-1').totalScore / 15) || 0,
