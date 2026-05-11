@@ -25,3 +25,19 @@ prep.cage,selectButton,选择
 prep.cage,cancelButton,取消
 prep.cage,acknowledgeButton,知道了
 prep.cage,confirmButton,确认
+prep.inspection,cardTitle,基坑边俯视场景图
+prep.inspection,diagramLabel,img:基坑边俯视场景图
+prep.inspection,excavationEdgeLabel,══════ 基坑边 ══════
+prep.inspection,detailsTooltip,点击查看详情
+prep.inspection,detailModalTitle,{value} 管口现场状态
+prep.inspection,detailDiagramTitle,管口俯视图
+prep.inspection,detailDiagramLabel,img:管口俯视图-{value}
+prep.inspection,questionModalTitle,{value} 问题识别与处理
+prep.inspection,judgeAction,验收判定
+prep.inspection,processedLabel,已处理
+prep.inspection,CX-01JudgeLabel,方向偏转
+prep.inspection,CX-02JudgeLabel,盖帽缺失
+prep.inspection,CX-03JudgeLabel,混凝土堵塞
+prep.inspection,CX-04JudgeLabel,状态合格
+prep.inspection,acknowledgeButton,知道了
+prep.inspection,confirmButton,确认

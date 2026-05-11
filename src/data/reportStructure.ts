@@ -35,4 +35,11 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     name: '导管安装到钢筋笼',
     maxScore: 4,
   },
+  'prep.inspection': {
+    stepId: 'prep.inspection',
+    reportStepId: 'prep.inspection',
+    outlineCode: 'Q05',
+    name: '管口验收',
+    maxScore: 4,
+  },
 };

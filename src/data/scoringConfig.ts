@@ -46,10 +46,12 @@ export const technicalPreparationScoringConfig = buildScoringConfig('prep.tech')
 export const materialPickupScoringConfig = buildScoringConfig('prep.material');
 export const tubeAssemblyScoringConfig = buildScoringConfig('prep.assembly');
 export const cageInstallationScoringConfig = buildScoringConfig('prep.cage');
+export const inspectionScoringConfig = buildScoringConfig('prep.inspection');
 
 export const scoringConfigs = {
   prepTech: technicalPreparationScoringConfig,
   prepMaterial: materialPickupScoringConfig,
   prepAssembly: tubeAssemblyScoringConfig,
   prepCage: cageInstallationScoringConfig,
+  prepInspection: inspectionScoringConfig,
 };

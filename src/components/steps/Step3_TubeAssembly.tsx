@@ -21,9 +21,7 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
 
   const hotspots = getTrainingHotspots('prep.assembly').map(hotspot => ({
     id: hotspot.hotspotId,
-    name: hotspot.name,
     label: hotspot.label,
-    title: hotspot.title,
     desc: hotspot.desc,
     x: hotspot.x,
     y: hotspot.y,
@@ -40,6 +38,12 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
   const connectorOptions = toOptions(connectorQuestion);
   const bottomCapOptions = toOptions(bottomCapQuestion);
   const jointOptions = toOptions(jointQuestion);
+  const questionLabels = {
+    tube: tubeQuestion?.label || '管体选型',
+    connector: connectorQuestion?.label || '接头选型',
+    bottomCap: bottomCapQuestion?.label || '底盖连接',
+    joint: jointQuestion?.label || '管间连接',
+  };
   const hotspotMap = Object.fromEntries(hotspots.map(hotspot => [hotspot.id, hotspot]));
 
   const isUnlocked = (_id: string) => true;
@@ -97,14 +101,14 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
             label={stepContent.diagramLabel}
             className="py-4"
             hotspots={[
-              { id: hotspotMap.tube?.name || '测斜管管体', label: hotspotMap.tube?.label || '管材选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.tube?.x || '16%', top: hotspotMap.tube?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('tube'), selected: !!completed['tube'] },
-              ...(viewed['tube'] ? [{ id: completed['tube'] ? '✓' : '?', label: hotspotMap.tube?.label || '管材选型', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.tube?.x || '16%'} + 28px)`, top: hotspotMap.tube?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('tube'), selected: !!completed['tube'], className: 'w-5 h-5 rounded-full text-[9px]', zIndex: 20 }] : []),
-              { id: hotspotMap.joint?.name || '管节连接', label: hotspotMap.joint?.label || '管节连接', labelPosition: 'bottom' as const, position: { left: hotspotMap.joint?.x || '37%', top: hotspotMap.joint?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('joint'), selected: !!completed['joint'], className: hotspotMap.joint?.className || 'w-7 h-9' },
-              ...(viewed['joint'] ? [{ id: completed['joint'] ? '✓' : '?', label: hotspotMap.joint?.label || '管节连接', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.joint?.x || '37%'} + 22px)`, top: hotspotMap.joint?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('joint'), selected: !!completed['joint'], className: 'w-5 h-5 rounded-full text-[9px]', zIndex: 20 }] : []),
-              { id: hotspotMap.connector?.name || '连接头', label: hotspotMap.connector?.label || '连接头选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.connector?.x || '50%', top: hotspotMap.connector?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('connector'), selected: !!completed['connector'] },
-              ...(viewed['connector'] ? [{ id: completed['connector'] ? '✓' : '?', label: hotspotMap.connector?.label || '连接头选型', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.connector?.x || '50%'} + 28px)`, top: hotspotMap.connector?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('connector'), selected: !!completed['connector'], className: 'w-5 h-5 rounded-full text-[9px]', zIndex: 20 }] : []),
-              { id: hotspotMap.bottomCap?.name || '底盖连接', label: hotspotMap.bottomCap?.label || '底盖操作', labelPosition: 'bottom' as const, position: { left: hotspotMap.bottomCap?.x || '80%', top: hotspotMap.bottomCap?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('bottomCap'), selected: !!completed['bottomCap'], className: hotspotMap.bottomCap?.className || 'w-7 h-9' },
-              ...(viewed['bottomCap'] ? [{ id: completed['bottomCap'] ? '✓' : '?', label: hotspotMap.bottomCap?.label || '底盖操作', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.bottomCap?.x || '80%'} + 22px)`, top: hotspotMap.bottomCap?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('bottomCap'), selected: !!completed['bottomCap'], className: 'w-5 h-5 rounded-full text-[9px]', zIndex: 20 }] : []),
+              { id: hotspotMap.tube?.label || '管材选型', label: hotspotMap.tube?.label || '管材选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.tube?.x || '16%', top: hotspotMap.tube?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('tube'), selected: !!completed['tube'] },
+              ...(viewed['tube'] ? [{ id: `${completed['tube'] ? '✓' : '?'} ${questionLabels.tube}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.tube?.x || '16%'} + 28px)`, top: hotspotMap.tube?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('tube'), selected: !!completed['tube'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.joint?.label || '管节连接', label: hotspotMap.joint?.label || '管节连接', labelPosition: 'bottom' as const, position: { left: hotspotMap.joint?.x || '37%', top: hotspotMap.joint?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('joint'), selected: !!completed['joint'], className: hotspotMap.joint?.className || 'w-7 h-9' },
+              ...(viewed['joint'] ? [{ id: `${completed['joint'] ? '✓' : '?'} ${questionLabels.joint}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.joint?.x || '37%'} + 22px)`, top: hotspotMap.joint?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('joint'), selected: !!completed['joint'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.connector?.label || '连接头选型', label: hotspotMap.connector?.label || '连接头选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.connector?.x || '50%', top: hotspotMap.connector?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('connector'), selected: !!completed['connector'] },
+              ...(viewed['connector'] ? [{ id: `${completed['connector'] ? '✓' : '?'} ${questionLabels.connector}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.connector?.x || '50%'} + 28px)`, top: hotspotMap.connector?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('connector'), selected: !!completed['connector'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.bottomCap?.label || '底盖操作', label: hotspotMap.bottomCap?.label || '底盖操作', labelPosition: 'bottom' as const, position: { left: hotspotMap.bottomCap?.x || '80%', top: hotspotMap.bottomCap?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('bottomCap'), selected: !!completed['bottomCap'], className: hotspotMap.bottomCap?.className || 'w-7 h-9' },
+              ...(viewed['bottomCap'] ? [{ id: `${completed['bottomCap'] ? '✓' : '?'} ${questionLabels.bottomCap}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.bottomCap?.x || '80%'} + 22px)`, top: hotspotMap.bottomCap?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('bottomCap'), selected: !!completed['bottomCap'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
             ]}
           >
             <AssemblyDiagram
@@ -116,10 +120,10 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
               bottomCapOptions={bottomCapOptions}
               jointOptions={jointOptions}
               labels={{
-                tube: hotspotMap.tube?.name || '',
-                connector: hotspotMap.connector?.name || '',
-                joint: hotspotMap.joint?.name || '',
-                bottomCap: hotspotMap.bottomCap?.name || '',
+                tube: hotspotMap.tube?.label || '',
+                connector: hotspotMap.connector?.label || '',
+                joint: hotspotMap.joint?.label || '',
+                bottomCap: hotspotMap.bottomCap?.label || '',
                 bottomCapEnd: '底盖',
               }}
               onHotspotClick={handleHotspotClick}
@@ -133,7 +137,7 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
       <Modal 
         isOpen={!!showDescModal} 
         onClose={() => setShowDescModal(null)}
-        title={hotspots.find(h => h.id === showDescModal)?.title || ''}
+        title={hotspots.find(h => h.id === showDescModal)?.label || ''}
       >
         <div className="space-y-6">
           <p className="text-xs leading-relaxed opacity-80">

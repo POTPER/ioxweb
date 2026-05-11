@@ -29,7 +29,7 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
   const tightnessQuestion = getQuestion('prep.cage.tightness');
   const bindingHotspot = cageHotspots.find(hotspot => hotspot.hotspotId === 'cageBinding');
   const bindingDesc = {
-    title: bindingHotspot?.title || '',
+    title: bindingHotspot?.label || '',
     desc: bindingHotspot?.desc || '',
   };
   const sectionHotspots = sectionQuestion?.type === 'singleChoice' ? sectionQuestion.options.map(option => ({

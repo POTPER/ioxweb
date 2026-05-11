@@ -20,9 +20,7 @@ export type TrainingStepContent = {
 export type TrainingHotspotContent = {
   stepId: string;
   hotspotId: string;
-  name: string;
   label: string;
-  title: string;
   desc: string;
   x: string;
   y: string;

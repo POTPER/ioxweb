@@ -76,14 +76,17 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     'Q02': 'prep.material',
     'Q03': 'prep.assembly',
     'Q04': 'prep.cage',
+    'Q05': 'prep.inspection',
     'S01': 'prep.tech',
     'S02': 'prep.material',
     'S03': 'prep.assembly',
     'S04': 'prep.cage',
+    'S05': 'prep.inspection',
     '4.2.1-1': 'prep.tech',
     '4.2.1-2-1': 'prep.material',
     '4.2.1-2-2': 'prep.assembly',
     '4.2.1-2-3': 'prep.cage',
+    '4.2.1-3-1': 'prep.inspection',
   };
 
   const getStep = (id: string) => {
@@ -93,7 +96,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     return stepData?.[id] || (alias ? stepData?.[alias] : undefined) || (legacyAlias ? stepData?.[legacyAlias] : undefined) || (legacyAppAlias ? stepData?.[legacyAppAlias] : undefined) || { score: 0, totalScore: 0, maxScore: 0, answers: [] };
   };
 
-  const m1Steps = ['prep.tech', 'prep.material', 'prep.assembly', 'prep.cage', '4.2.1-3-1', '4.2.1-3-2', '4.2.1-4'];
+  const m1Steps = ['prep.tech', 'prep.material', 'prep.assembly', 'prep.cage', 'prep.inspection', '4.2.1-3-2', '4.2.1-4'];
   const m2Steps = ['4.2.2-1', '4.2.2-2'];
   const m3Steps = ['4.2.3-1', '4.2.3-2', '4.2.3-3'];
 
@@ -106,7 +109,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
 
   const calculateModuleMaxScore = (stepIds: string[]) => {
     const maxScores: Record<string, number> = {
-      'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
+      'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, 'prep.inspection': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
       '4.2.2-1': 4, '4.2.2-2': 21,
       '4.2.3-1': 15, '4.2.3-2': 15, '4.2.3-3': 20
     };
@@ -125,7 +128,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
 
   const formatSteps = (stepIds: string[]) => {
     const names: Record<string, string> = {
-      'prep.tech': '前期技术准备', 'prep.material': '取料区域', 'prep.assembly': '管材拼装', 'prep.cage': '导管安装到钢筋笼', '4.2.1-1': '前期技术准备', '4.2.1-2-1': '取料区域', '4.2.1-2-2': '管材拼装', '4.2.1-2-3': '安装到钢筋笼', 
+      'prep.tech': '前期技术准备', 'prep.material': '取料区域', 'prep.assembly': '管材拼装', 'prep.cage': '导管安装到钢筋笼', 'prep.inspection': '管口验收', '4.2.1-1': '前期技术准备', '4.2.1-2-1': '取料区域', '4.2.1-2-2': '管材拼装', '4.2.1-2-3': '安装到钢筋笼', 
       '4.2.1-3-1': '管口验收', '4.2.1-3-2': '通畅性测试', '4.2.1-4': '初测(基准测量)',
       '4.2.2-1': '测前准备与安全防护', '4.2.2-2': '读数仪设置与数据采集',
       '4.2.3-1': '数据导入与预处理', '4.2.3-2': '监测日报表填写', '4.2.3-3': '多期数据分析'
