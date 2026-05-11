@@ -16,6 +16,7 @@ interface AssemblyDiagramProps {
   bottomCapOptions: { id: string; text: string }[];
   jointOptions: { id: string; text: string }[];
   labels: Record<string, string>;
+  questionLabels: Record<string, string>;
   onHotspotClick: (id: string) => void;
   onQuestionClick: (id: string) => void;
 }
@@ -30,12 +31,13 @@ interface BoxProps {
   labelSize?: string;
   onClick?: () => void;
   onQuestionClick?: () => void;
+  questionLabel?: string;
   resultText?: string;
 }
 
 const PartBox: React.FC<BoxProps> = ({
   flex, label, hotspotId, viewed, completed, borderClass = '', labelSize = 'text-xs',
-  onClick, onQuestionClick, resultText,
+  onClick, onQuestionClick, questionLabel, resultText,
 }) => (
   <div className={flex + ' flex flex-col items-center'}>
     <div
@@ -59,7 +61,7 @@ const PartBox: React.FC<BoxProps> = ({
             labelSize === 'text-sm' && "absolute top-1 right-1 text-sm mt-0"
           )}
         >
-          {!completed ? '[?]' : '[v]'}
+          {completed ? `✓ ${questionLabel || ''}` : `? ${questionLabel || ''}`}
         </button>
       )}
     </div>
@@ -75,6 +77,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
   viewed, completed, answers,
   tubeOptions, connectorOptions, bottomCapOptions, jointOptions,
   labels,
+  questionLabels,
   onHotspotClick, onQuestionClick,
 }) => {
   return (
@@ -86,6 +89,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="rounded-l-lg border-[3px] border-r-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('tube')}
         onQuestionClick={() => onQuestionClick('tube')}
+        questionLabel={questionLabels.tube}
         resultText={tubeOptions.find(o => o.id === answers.tube)?.text}
       />
 
@@ -96,6 +100,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('joint')}
         onQuestionClick={() => onQuestionClick('joint')}
+        questionLabel={questionLabels.joint}
         resultText={jointOptions.find(o => o.id === answers.joint)?.text}
       />
 
@@ -106,6 +111,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="border-[3px] border-x-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('connector')}
         onQuestionClick={() => onQuestionClick('connector')}
+        questionLabel={questionLabels.connector}
         resultText={connectorOptions.find(o => o.id === answers.connector)?.text}
       />
 
@@ -116,6 +122,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('joint')}
         onQuestionClick={() => onQuestionClick('joint')}
+        questionLabel={questionLabels.joint}
         resultText={jointOptions.find(o => o.id === answers.joint)?.text}
       />
 
@@ -126,6 +133,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="border-[3px] border-x-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('tube')}
         onQuestionClick={() => onQuestionClick('tube')}
+        questionLabel={questionLabels.tube}
         resultText={tubeOptions.find(o => o.id === answers.tube)?.text}
       />
 
@@ -136,6 +144,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('bottomCap')}
         onQuestionClick={() => onQuestionClick('bottomCap')}
+        questionLabel={questionLabels.bottomCap}
         resultText={bottomCapOptions.find(o => o.id === answers.bottomCap)?.text}
       />
 

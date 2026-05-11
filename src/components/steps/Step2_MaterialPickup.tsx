@@ -29,6 +29,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   })) : [];
   const inspectionOptions = inspectionQuestion?.type === 'singleChoice' ? inspectionQuestion.options.map(option => ({
     id: option.value,
+    code: option.code,
     text: option.label,
   })) : [];
 
@@ -215,7 +216,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                     : "border-industrial-fg/20 hover:border-industrial-fg"
                 )}
               >
-                <span className="font-bold mr-2">{opt.id}.</span>
+                <span className="font-bold mr-2">{opt.code}.</span>
                 {opt.text}
               </button>
             ))}

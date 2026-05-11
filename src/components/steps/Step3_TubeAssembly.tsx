@@ -33,16 +33,16 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
   const connectorQuestion = getQuestion('prep.assembly.connector');
   const bottomCapQuestion = getQuestion('prep.assembly.bottomCap');
   const jointQuestion = getQuestion('prep.assembly.joint');
-  const toOptions = (question: typeof tubeQuestion) => question?.type === 'singleChoice' ? question.options.map(option => ({ id: option.value, text: option.label })) : [];
+  const toOptions = (question: typeof tubeQuestion) => question?.type === 'singleChoice' ? question.options.map(option => ({ id: option.value, code: option.code, text: option.label })) : [];
   const tubeOptions = toOptions(tubeQuestion);
   const connectorOptions = toOptions(connectorQuestion);
   const bottomCapOptions = toOptions(bottomCapQuestion);
   const jointOptions = toOptions(jointQuestion);
   const questionLabels = {
-    tube: tubeQuestion?.label || '管体选型',
-    connector: connectorQuestion?.label || '接头选型',
-    bottomCap: bottomCapQuestion?.label || '底盖连接',
-    joint: jointQuestion?.label || '管间连接',
+    tube: tubeQuestion?.label || '',
+    connector: connectorQuestion?.label || '',
+    bottomCap: bottomCapQuestion?.label || '',
+    joint: jointQuestion?.label || '',
   };
   const hotspotMap = Object.fromEntries(hotspots.map(hotspot => [hotspot.id, hotspot]));
 
@@ -101,14 +101,14 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
             label={stepContent.diagramLabel}
             className="py-4"
             hotspots={[
-              { id: hotspotMap.tube?.label || '管材选型', label: hotspotMap.tube?.label || '管材选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.tube?.x || '16%', top: hotspotMap.tube?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('tube'), selected: !!completed['tube'] },
-              ...(viewed['tube'] ? [{ id: `${completed['tube'] ? '✓' : '?'} ${questionLabels.tube}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.tube?.x || '16%'} + 28px)`, top: hotspotMap.tube?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('tube'), selected: !!completed['tube'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.joint?.label || '管节连接', label: hotspotMap.joint?.label || '管节连接', labelPosition: 'bottom' as const, position: { left: hotspotMap.joint?.x || '37%', top: hotspotMap.joint?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('joint'), selected: !!completed['joint'], className: hotspotMap.joint?.className || 'w-7 h-9' },
-              ...(viewed['joint'] ? [{ id: `${completed['joint'] ? '✓' : '?'} ${questionLabels.joint}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.joint?.x || '37%'} + 22px)`, top: hotspotMap.joint?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('joint'), selected: !!completed['joint'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.connector?.label || '连接头选型', label: hotspotMap.connector?.label || '连接头选型', labelPosition: 'bottom' as const, position: { left: hotspotMap.connector?.x || '50%', top: hotspotMap.connector?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('connector'), selected: !!completed['connector'] },
-              ...(viewed['connector'] ? [{ id: `${completed['connector'] ? '✓' : '?'} ${questionLabels.connector}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.connector?.x || '50%'} + 28px)`, top: hotspotMap.connector?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('connector'), selected: !!completed['connector'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.bottomCap?.label || '底盖操作', label: hotspotMap.bottomCap?.label || '底盖操作', labelPosition: 'bottom' as const, position: { left: hotspotMap.bottomCap?.x || '80%', top: hotspotMap.bottomCap?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('bottomCap'), selected: !!completed['bottomCap'], className: hotspotMap.bottomCap?.className || 'w-7 h-9' },
-              ...(viewed['bottomCap'] ? [{ id: `${completed['bottomCap'] ? '✓' : '?'} ${questionLabels.bottomCap}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.bottomCap?.x || '80%'} + 22px)`, top: hotspotMap.bottomCap?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('bottomCap'), selected: !!completed['bottomCap'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.tube?.label || '', label: hotspotMap.tube?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.tube?.x || '16%', top: hotspotMap.tube?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('tube'), selected: !!completed['tube'] },
+              ...(viewed['tube'] ? [{ id: `${completed['tube'] ? '\u2713' : '?'} ${questionLabels.tube}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.tube?.x || '16%'} + 28px)`, top: hotspotMap.tube?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('tube'), selected: !!completed['tube'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.joint?.label || '', label: hotspotMap.joint?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.joint?.x || '37%', top: hotspotMap.joint?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('joint'), selected: !!completed['joint'], className: hotspotMap.joint?.className || 'w-7 h-9' },
+              ...(viewed['joint'] ? [{ id: `${completed['joint'] ? '\u2713' : '?'} ${questionLabels.joint}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.joint?.x || '37%'} + 22px)`, top: hotspotMap.joint?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('joint'), selected: !!completed['joint'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.connector?.label || '', label: hotspotMap.connector?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.connector?.x || '50%', top: hotspotMap.connector?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('connector'), selected: !!completed['connector'] },
+              ...(viewed['connector'] ? [{ id: `${completed['connector'] ? '\u2713' : '?'} ${questionLabels.connector}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.connector?.x || '50%'} + 28px)`, top: hotspotMap.connector?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('connector'), selected: !!completed['connector'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              { id: hotspotMap.bottomCap?.label || '', label: hotspotMap.bottomCap?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.bottomCap?.x || '80%', top: hotspotMap.bottomCap?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('bottomCap'), selected: !!completed['bottomCap'], className: hotspotMap.bottomCap?.className || 'w-7 h-9' },
+              ...(viewed['bottomCap'] ? [{ id: `${completed['bottomCap'] ? '\u2713' : '?'} ${questionLabels.bottomCap}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.bottomCap?.x || '80%'} + 22px)`, top: hotspotMap.bottomCap?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('bottomCap'), selected: !!completed['bottomCap'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
             ]}
           >
             <AssemblyDiagram
@@ -124,8 +124,9 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                 connector: hotspotMap.connector?.label || '',
                 joint: hotspotMap.joint?.label || '',
                 bottomCap: hotspotMap.bottomCap?.label || '',
-                bottomCapEnd: '底盖',
+                bottomCapEnd: '\u5e95\u76d6',
               }}
+              questionLabels={questionLabels}
               onHotspotClick={handleHotspotClick}
               onQuestionClick={openQuestion}
             />
@@ -134,8 +135,8 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
       </TechnicalCard>
 
       {/* Description Modal */}
-      <Modal 
-        isOpen={!!showDescModal} 
+      <Modal
+        isOpen={!!showDescModal}
         onClose={() => setShowDescModal(null)}
         title={hotspots.find(h => h.id === showDescModal)?.label || ''}
       >
@@ -144,7 +145,7 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
             {hotspots.find(h => h.id === showDescModal)?.desc}
           </p>
           <div className="flex justify-center">
-            <Button onClick={confirmDesc} className="px-8">知道了</Button>
+            <Button onClick={confirmDesc} className="px-8">{'\u77e5\u9053\u4e86'}</Button>
           </div>
         </div>
       </Modal>
@@ -152,7 +153,7 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
       {/* Question Modals */}
       <AnimatePresence>
         {showQuestionModal === 'tube' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title="管材选型">
+          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.tube}>
             <div className="space-y-4">
               <p className="text-xs font-bold">{tubeQuestion?.prompt}</p>
               <div className="space-y-2">
@@ -167,20 +168,20 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                         : "border-industrial-fg/20 hover:border-industrial-fg"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}.</span>
+                    <span className="font-bold mr-2">{opt.code}.</span>
                     {opt.text}
                   </button>
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('tube')} className="px-12" disabled={!selectedOption}>确认</Button>
+                <Button onClick={() => handleConfirmAnswer('tube')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
               </div>
             </div>
           </Modal>
         )}
 
         {showQuestionModal === 'connector' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title="连接头选型">
+          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.connector}>
             <div className="space-y-4">
               <p className="text-xs font-bold">{connectorQuestion?.prompt}</p>
               <div className="space-y-2">
@@ -195,20 +196,20 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                         : "border-industrial-fg/20 hover:border-industrial-fg"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}.</span>
+                    <span className="font-bold mr-2">{opt.code}.</span>
                     {opt.text}
                   </button>
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('connector')} className="px-12" disabled={!selectedOption}>确认</Button>
+                <Button onClick={() => handleConfirmAnswer('connector')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
               </div>
             </div>
           </Modal>
         )}
 
         {showQuestionModal === 'bottomCap' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title="底盖操作方式">
+          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.bottomCap}>
             <div className="space-y-4">
               <p className="text-xs font-bold">{bottomCapQuestion?.prompt}</p>
               <div className="space-y-2">
@@ -223,20 +224,20 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                         : "border-industrial-fg/20 hover:border-industrial-fg"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}.</span>
+                    <span className="font-bold mr-2">{opt.code}.</span>
                     {opt.text}
                   </button>
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('bottomCap')} className="px-12" disabled={!selectedOption}>确认</Button>
+                <Button onClick={() => handleConfirmAnswer('bottomCap')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
               </div>
             </div>
           </Modal>
         )}
 
         {showQuestionModal === 'joint' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title="管节连接操作流程">
+          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.joint}>
             <div className="space-y-4">
               <p className="text-xs font-bold">{jointQuestion?.prompt}</p>
               <div className="space-y-2">
@@ -251,13 +252,13 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                         : "border-industrial-fg/20 hover:border-industrial-fg"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}.</span>
+                    <span className="font-bold mr-2">{opt.code}.</span>
                     {opt.text}
                   </button>
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('joint')} className="px-12" disabled={!selectedOption}>确认</Button>
+                <Button onClick={() => handleConfirmAnswer('joint')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
               </div>
             </div>
           </Modal>
