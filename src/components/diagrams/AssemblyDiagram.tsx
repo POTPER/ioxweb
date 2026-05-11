@@ -33,11 +33,12 @@ interface BoxProps {
   onQuestionClick?: () => void;
   questionLabel?: string;
   resultText?: string;
+  quiet?: boolean;
 }
 
 const PartBox: React.FC<BoxProps> = ({
   flex, label, hotspotId, viewed, completed, borderClass = '', labelSize = 'text-xs',
-  onClick, onQuestionClick, questionLabel, resultText,
+  onClick, onQuestionClick, questionLabel, resultText, quiet,
 }) => (
   <div className={flex + ' flex flex-col items-center'}>
     <div
@@ -57,7 +58,8 @@ const PartBox: React.FC<BoxProps> = ({
           onClick={(e) => { e.stopPropagation(); onQuestionClick?.(); }}
           className={cn(
             "font-bold text-[10px] mt-1",
-            !completed ? "text-industrial-fg animate-breathing" : "text-green-600",
+            !completed ? "text-industrial-fg" : "text-green-600",
+            !completed && !quiet && "animate-breathing",
             labelSize === 'text-sm' && "absolute top-1 right-1 text-sm mt-0"
           )}
         >
@@ -80,6 +82,8 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
   questionLabels,
   onHotspotClick, onQuestionClick,
 }) => {
+  const hasCompletedAny = Object.values(completed).some(Boolean);
+
   return (
     <div className="flex items-start gap-0 w-full">
       {/* #1 侧斜管（左段） */}
@@ -91,6 +95,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('tube')}
         questionLabel={questionLabels.tube}
         resultText={tubeOptions.find(o => o.id === answers.tube)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #2 连接处2（左） */}
@@ -102,6 +107,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('joint')}
         questionLabel={questionLabels.joint}
         resultText={jointOptions.find(o => o.id === answers.joint)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #3 连接头 */}
@@ -113,6 +119,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('connector')}
         questionLabel={questionLabels.connector}
         resultText={connectorOptions.find(o => o.id === answers.connector)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #4 连接处2（右） */}
@@ -124,6 +131,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('joint')}
         questionLabel={questionLabels.joint}
         resultText={jointOptions.find(o => o.id === answers.joint)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #5 侧斜管（右段） */}
@@ -135,6 +143,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('tube')}
         questionLabel={questionLabels.tube}
         resultText={tubeOptions.find(o => o.id === answers.tube)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #6 连接处1 */}
@@ -146,6 +155,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
         onQuestionClick={() => onQuestionClick('bottomCap')}
         questionLabel={questionLabels.bottomCap}
         resultText={bottomCapOptions.find(o => o.id === answers.bottomCap)?.text}
+        quiet={hasCompletedAny}
       />
 
       {/* #7 底盖（纯视觉，不可点击） */}

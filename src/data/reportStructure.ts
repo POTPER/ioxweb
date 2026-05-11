@@ -42,4 +42,18 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     name: '管口验收',
     maxScore: 4,
   },
+  'prep.connectivity': {
+    stepId: 'prep.connectivity',
+    reportStepId: '4.2.1-3-2',
+    outlineCode: 'Q06',
+    name: '通畅性测试',
+    maxScore: 4,
+  },
+  'prep.initialMeasurement': {
+    stepId: 'prep.initialMeasurement',
+    reportStepId: '4.2.1-4',
+    outlineCode: 'Q07',
+    name: '初测(基准测量)',
+    maxScore: 4,
+  },
 };

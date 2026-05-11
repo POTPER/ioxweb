@@ -8,17 +8,25 @@ import { SitePlanDiagram } from '../diagrams/SitePlanDiagram';
 import { technicalPreparationScoringConfig } from '../../data/scoringConfig';
 import { getUiLabel, trainingStepsByStepId } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
-  const [selectedHotspot, setSelectedHotspot] = useState<string | null>(null);
+  const draft = loadStepDraft<{
+    selectedHotspot?: string | null;
+    confirmedHotspot?: string | null;
+    spacing?: string;
+    hotspotViewed?: string[];
+    modifyCount?: number;
+  }>('1');
+  const [selectedHotspot, setSelectedHotspot] = useState<string | null>(() => draft?.selectedHotspot ?? draft?.confirmedHotspot ?? null);
   const [hoveredHotspot, setHoveredHotspot] = useState<string | null>(null);
-  const [confirmedHotspot, setConfirmedHotspot] = useState<string | null>(null);
-  const [spacing, setSpacing] = useState('');
+  const [confirmedHotspot, setConfirmedHotspot] = useState<string | null>(() => draft?.confirmedHotspot ?? null);
+  const [spacing, setSpacing] = useState(() => draft?.spacing ?? '');
   const [showSpacingInput, setShowSpacingInput] = useState(false);
   const [showHotspotModal, setShowHotspotModal] = useState(false);
-  const [hotspotViewed, setHotspotViewed] = useState<string[]>([]);
-  const [modifyCount, setModifyCount] = useState(0);
+  const [hotspotViewed, setHotspotViewed] = useState<string[]>(() => draft?.hotspotViewed ?? []);
+  const [modifyCount, setModifyCount] = useState(() => draft?.modifyCount ?? 0);
   const stepContent = trainingStepsByStepId['prep.tech'];
 
   const pointQuestion = technicalPreparationScoringConfig.questions.find(q => q.questionId === 'prep.tech.location' && q.type === 'singleChoice');
@@ -36,7 +44,11 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
     setSelectedHotspot(id);
     setShowHotspotModal(true);
     if (!hotspotViewed.includes(id)) {
-      setHotspotViewed([...hotspotViewed, id]);
+      const nextHotspotViewed = [...hotspotViewed, id];
+      setHotspotViewed(nextHotspotViewed);
+      saveStepDraft('1', { selectedHotspot: id, confirmedHotspot, spacing, hotspotViewed: nextHotspotViewed, modifyCount });
+    } else {
+      saveStepDraft('1', { selectedHotspot: id, confirmedHotspot, spacing, hotspotViewed, modifyCount });
     }
   };
 
@@ -47,11 +59,17 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
   }, [confirmedHotspot, spacing]);
 
   const handleConfirmHotspot = () => {
+    const nextConfirmedHotspot = selectedHotspot;
+    let nextSpacing = spacing;
+    let nextShowSpacingInput = showSpacingInput;
     if (confirmedHotspot && confirmedHotspot !== selectedHotspot) {
-      setSpacing('');
-      setShowSpacingInput(false);
+      nextSpacing = '';
+      nextShowSpacingInput = false;
+      setSpacing(nextSpacing);
+      setShowSpacingInput(nextShowSpacingInput);
     }
-    setConfirmedHotspot(selectedHotspot);
+    setConfirmedHotspot(nextConfirmedHotspot);
+    saveStepDraft('1', { selectedHotspot, confirmedHotspot: nextConfirmedHotspot, spacing: nextSpacing, hotspotViewed, modifyCount });
     setShowHotspotModal(false);
   };
 
@@ -63,9 +81,12 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
   const handleConfirmSpacing = () => {
     if (!spacing || parseInt(spacing) <= 0) return;
     
+    let nextModifyCount = modifyCount;
     if (spacing) {
-      setModifyCount(prev => prev + 1);
+      nextModifyCount = modifyCount + 1;
+      setModifyCount(nextModifyCount);
     }
+    saveStepDraft('1', { selectedHotspot, confirmedHotspot, spacing, hotspotViewed, modifyCount: nextModifyCount });
     setShowSpacingInput(false);
   };
 

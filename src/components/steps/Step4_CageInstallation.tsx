@@ -9,11 +9,13 @@ import { ElevationDiagram } from '../diagrams/ElevationDiagram';
 import { cageInstallationScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
-  const [viewed, setViewed] = useState<Record<string, boolean>>({});
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const draft = loadStepDraft<{ viewed?: Record<string, boolean>; completed?: Record<string, boolean>; answers?: Record<string, any> }>('4');
+  const [viewed, setViewed] = useState<Record<string, boolean>>(() => draft?.viewed ?? {});
+  const [completed, setCompleted] = useState<Record<string, boolean>>(() => draft?.completed ?? {});
+  const [answers, setAnswers] = useState<Record<string, any>>(() => draft?.answers ?? {});
   const [showDescModal, setShowDescModal] = useState<string | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -63,8 +65,11 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
   const confirmDesc = () => {
     if (showDescModal) {
       const [type, id] = showDescModal.split(':');
-      setAnswers({ ...answers, [type]: id });
-      setCompleted({ ...completed, [type]: true });
+      const nextAnswers = { ...answers, [type]: id };
+      const nextCompleted = { ...completed, [type]: true };
+      setAnswers(nextAnswers);
+      setCompleted(nextCompleted);
+      saveStepDraft('4', { viewed, completed: nextCompleted, answers: nextAnswers });
       setShowDescModal(null);
     }
   };
@@ -76,8 +81,11 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
 
   const handleConfirmAnswer = (type: string) => {
     if (!selectedOption) return;
-    setAnswers({ ...answers, [type]: selectedOption });
-    setCompleted({ ...completed, [type]: true });
+    const nextAnswers = { ...answers, [type]: selectedOption };
+    const nextCompleted = { ...completed, [type]: true };
+    setAnswers(nextAnswers);
+    setCompleted(nextCompleted);
+    saveStepDraft('4', { viewed, completed: nextCompleted, answers: nextAnswers });
     setShowQuestionModal(null);
     setSelectedOption(null);
     modalJustClosed.current = true;
@@ -96,8 +104,11 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
   };
 
   const confirmBinding = () => {
-    setViewed({ ...viewed, binding: true });
-    setCompleted({ ...completed, binding: true });
+    const nextViewed = { ...viewed, binding: true };
+    const nextCompleted = { ...completed, binding: true };
+    setViewed(nextViewed);
+    setCompleted(nextCompleted);
+    saveStepDraft('4', { viewed: nextViewed, completed: nextCompleted, answers });
     setShowBindingModal(false);
   };
 

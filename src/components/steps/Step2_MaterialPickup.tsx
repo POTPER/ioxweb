@@ -7,14 +7,16 @@ import { WireframePlaceholder } from '../WireframeOverlay';
 import { materialPickupScoringConfig } from '../../data/scoringConfig';
 import { getUiLabel, trainingStepsByStepId } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
-  const [selectedArea, setSelectedArea] = useState<string | null>(null);
-  const [confirmedArea, setConfirmedArea] = useState<string | null>(null);
+  const draft = loadStepDraft<{ selectedArea?: string | null; confirmedArea?: string | null; inspectionAnswer?: string | null }>('2');
+  const [selectedArea, setSelectedArea] = useState<string | null>(() => draft?.selectedArea ?? draft?.confirmedArea ?? null);
+  const [confirmedArea, setConfirmedArea] = useState<string | null>(() => draft?.confirmedArea ?? null);
   const [showAreaModal, setShowAreaModal] = useState(false);
   const [showInspectionModal, setShowInspectionModal] = useState(false);
-  const [inspectionAnswer, setInspectionAnswer] = useState<string | null>(null);
+  const [inspectionAnswer, setInspectionAnswer] = useState<string | null>(() => draft?.inspectionAnswer ?? null);
   const [tempInspectionAnswer, setTempInspectionAnswer] = useState<string | null>(null);
   const stepContent = trainingStepsByStepId['prep.material'];
 
@@ -41,14 +43,19 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
 
   const handleAreaClick = (id: string) => {
     setSelectedArea(id);
+    saveStepDraft('2', { selectedArea: id, confirmedArea, inspectionAnswer });
     setShowAreaModal(true);
   };
 
   const handleConfirmArea = () => {
+    const nextConfirmedArea = selectedArea;
+    let nextInspectionAnswer = inspectionAnswer;
     if (confirmedArea && confirmedArea !== selectedArea) {
-      setInspectionAnswer(null);
+      nextInspectionAnswer = null;
+      setInspectionAnswer(nextInspectionAnswer);
     }
-    setConfirmedArea(selectedArea);
+    setConfirmedArea(nextConfirmedArea);
+    saveStepDraft('2', { selectedArea, confirmedArea: nextConfirmedArea, inspectionAnswer: nextInspectionAnswer });
     setShowAreaModal(false);
   };
 
@@ -69,8 +76,6 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   };
 
   const currentAreaData = areas.find(a => a.id === selectedArea);
-  const confirmedAreaData = areas.find(a => a.id === confirmedArea);
-  const inspectionAnswerLabel = inspectionOptions.find(option => option.id === inspectionAnswer)?.id || '';
 
   return (
     <div className="space-y-6">
@@ -79,7 +84,6 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
             <WireframePlaceholder
               label={stepContent.diagramLabel}
               className="aspect-[21/9]"
-              forceWireframe
               hotspots={[
                 ...areas.map(area => ({
                   id: area.name,
@@ -94,7 +98,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 })),
                 ...(confirmedArea ? [{
                   id: inspectionAnswer ? '✓' : '?',
-                  label: inspectionAnswer ? getUiLabel('prep.material', 'inspectionActionDone', { value: inspectionAnswerLabel }) : getUiLabel('prep.material', 'inspectionActionEmpty'),
+                  label: getUiLabel('prep.material', 'inspectionActionEmpty'),
                   labelPosition: 'right' as const,
                   className: 'w-5 h-5 rounded-full text-[9px]',
                   position: {
@@ -111,7 +115,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 }] : []),
               ]}
             >
-              <div className="relative w-full h-full bg-[#f0f0f0] border-2 border-industrial-fg overflow-hidden group">
+              <div className="relative w-full aspect-[21/9] bg-[#f0f0f0] border-2 border-industrial-fg overflow-hidden group">
                 {/* Scene Background Mock */}
                 <div className="absolute inset-0 bg-neutral-200">
                   <div className="absolute inset-x-[20%] inset-y-[40%] border-4 border-industrial-fg/10 flex items-center justify-center">
@@ -126,11 +130,15 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                     onClick={() => handleAreaClick(area.id)}
                     className={cn(
                       "absolute min-w-20 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
-                      confirmedArea === area.id ? "scale-110" : "hover:scale-110",
+                      confirmedArea === area.id ? "scale-110" : "hover:scale-125",
                       confirmedArea && confirmedArea !== area.id && "opacity-50"
                     )}
                     style={{ left: area.x, top: area.y }}
                   >
+                    <div className={cn(
+                      "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
+                      confirmedArea && "hidden"
+                    )} />
                     <div className={cn(
                       "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
                       confirmedArea === area.id ? "bg-green-500 text-white" : 
@@ -156,7 +164,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                           {inspectionAnswer ? (
                             <>
                               <CheckCircle2 size={12} />
-                              <span>{getUiLabel('prep.material', 'inspectionDoneLabel', { value: inspectionAnswerLabel })}</span>
+                              <span>{getUiLabel('prep.material', 'inspectionActionEmpty')}</span>
                             </>
                           ) : (
                             <>
@@ -224,6 +232,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
           <Button 
             onClick={() => {
               setInspectionAnswer(tempInspectionAnswer);
+              saveStepDraft('2', { selectedArea, confirmedArea, inspectionAnswer: tempInspectionAnswer });
               setTempInspectionAnswer(null);
               setShowInspectionModal(false);
             }} 

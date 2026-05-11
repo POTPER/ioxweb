@@ -41,3 +41,14 @@ prep.inspection,CX-03JudgeLabel,混凝土堵塞
 prep.inspection,CX-04JudgeLabel,状态合格
 prep.inspection,acknowledgeButton,知道了
 prep.inspection,confirmButton,确认
+prep.connectivity,cardTitle,基坑边俯视场景图
+prep.connectivity,diagramLabel,img:基坑边俯视场景图（通槽复测）
+prep.connectivity,excavationEdgeLabel,══════ 基坑边 ══════
+prep.connectivity,detailsTooltip,
+prep.connectivity,detailModalTitle,{value}
+prep.connectivity,detailDiagramTitle,探头下放示意
+prep.connectivity,detailDiagramLabel,img:探头下放示意图-{value}
+prep.connectivity,questionModalTitle,{value} 通槽复测判定
+prep.connectivity,judgeAction,通槽判定
+prep.connectivity,acknowledgeButton,知道了
+prep.connectivity,confirmButton,确认

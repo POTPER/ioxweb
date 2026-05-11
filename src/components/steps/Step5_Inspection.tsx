@@ -8,11 +8,13 @@ import { WireframePlaceholder } from '../WireframeOverlay';
 import { inspectionScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
-  const [viewed, setViewed] = useState<Record<string, boolean>>({});
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const draft = loadStepDraft<{ viewed?: Record<string, boolean>; completed?: Record<string, boolean>; answers?: Record<string, string> }>('5');
+  const [viewed, setViewed] = useState<Record<string, boolean>>(() => draft?.viewed ?? {});
+  const [completed, setCompleted] = useState<Record<string, boolean>>(() => draft?.completed ?? {});
+  const [answers, setAnswers] = useState<Record<string, string>>(() => draft?.answers ?? {});
   const [showDescModal, setShowDescModal] = useState<string | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -38,7 +40,9 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
 
   const confirmDesc = () => {
     if (showDescModal) {
-      setViewed({ ...viewed, [showDescModal]: true });
+      const nextViewed = { ...viewed, [showDescModal]: true };
+      setViewed(nextViewed);
+      saveStepDraft('5', { viewed: nextViewed, completed, answers });
       setShowDescModal(null);
     }
   };
@@ -50,8 +54,11 @@ export const Inspection: React.FC<{ onNext: (data: any) => void }> = ({ onNext }
 
   const handleConfirmAnswer = (id: string) => {
     if (!selectedOption) return;
-    setAnswers({ ...answers, [id]: selectedOption });
-    setCompleted({ ...completed, [id]: true });
+    const nextAnswers = { ...answers, [id]: selectedOption };
+    const nextCompleted = { ...completed, [id]: true };
+    setAnswers(nextAnswers);
+    setCompleted(nextCompleted);
+    saveStepDraft('5', { viewed, completed: nextCompleted, answers: nextAnswers });
     setShowQuestionModal(null);
     setSelectedOption(null);
   };

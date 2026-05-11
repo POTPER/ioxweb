@@ -98,7 +98,6 @@ function AppInner() {
       saveStepResult(currentStep, data);
     }
     setCompletedSteps(prev => new Set(prev).add(currentStep));
-    if (currentStep === '7') { setCurrentStep('8'); return; }
     // Note: 步骤12 完成后不再自动触发 handleFinish，改由侧栏「提交本次实操」按钮手动提交
   };
 

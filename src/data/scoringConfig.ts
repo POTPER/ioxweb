@@ -47,6 +47,8 @@ export const materialPickupScoringConfig = buildScoringConfig('prep.material');
 export const tubeAssemblyScoringConfig = buildScoringConfig('prep.assembly');
 export const cageInstallationScoringConfig = buildScoringConfig('prep.cage');
 export const inspectionScoringConfig = buildScoringConfig('prep.inspection');
+export const connectivityScoringConfig = buildScoringConfig('prep.connectivity');
+export const initialMeasurementScoringConfig = buildScoringConfig('prep.initialMeasurement');
 
 export const scoringConfigs = {
   prepTech: technicalPreparationScoringConfig,
@@ -54,4 +56,6 @@ export const scoringConfigs = {
   prepAssembly: tubeAssemblyScoringConfig,
   prepCage: cageInstallationScoringConfig,
   prepInspection: inspectionScoringConfig,
+  prepConnectivity: connectivityScoringConfig,
+  prepInitialMeasurement: initialMeasurementScoringConfig,
 };

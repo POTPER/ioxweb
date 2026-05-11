@@ -4,6 +4,7 @@ export type TrainingSession = {
   version: number;
   updatedAt: string;
   submissions: Record<string, any>;
+  drafts: Record<string, any>;
   results: Record<string, any>;
   completedSteps: string[];
 };
@@ -12,6 +13,7 @@ const createEmptySession = (): TrainingSession => ({
   version: 1,
   updatedAt: new Date().toISOString(),
   submissions: {},
+  drafts: {},
   results: {},
   completedSteps: [],
 });
@@ -29,6 +31,7 @@ export const loadTrainingSession = (): TrainingSession => {
       version: parsed.version ?? 1,
       updatedAt: parsed.updatedAt ?? new Date().toISOString(),
       submissions: parsed.submissions ?? {},
+      drafts: parsed.drafts ?? {},
       results: parsed.results ?? {},
       completedSteps: parsed.completedSteps ?? [],
     };
@@ -62,6 +65,22 @@ export const saveStepResult = (stepId: string, result: any) => {
       [stepId]: result,
     },
     completedSteps: Array.from(nextCompletedSteps),
+  });
+};
+
+export const loadStepDraft = <T = any>(stepId: string): T | undefined => {
+  return loadTrainingSession().drafts[stepId] as T | undefined;
+};
+
+export const saveStepDraft = (stepId: string, draft: any) => {
+  const session = loadTrainingSession();
+
+  saveTrainingSession({
+    ...session,
+    drafts: {
+      ...session.drafts,
+      [stepId]: draft,
+    },
   });
 };
 

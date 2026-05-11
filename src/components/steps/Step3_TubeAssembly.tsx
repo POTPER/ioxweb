@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { TechnicalCard, Button, Modal } from '../Common';
 import { AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
-import { AssemblyDiagram } from '../diagrams/AssemblyDiagram';
 import { tubeAssemblyScoringConfig } from '../../data/scoringConfig';
 import { getTrainingHotspots, trainingStepsByStepId } from '../../data/trainingContent';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
-  const { wireframeMode } = useWireframe();
-  const [viewed, setViewed] = useState<Record<string, boolean>>({});
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const draft = loadStepDraft<{ viewed?: Record<string, boolean>; completed?: Record<string, boolean>; answers?: Record<string, any> }>('3');
+  const [viewed, setViewed] = useState<Record<string, boolean>>(() => draft?.viewed ?? {});
+  const [completed, setCompleted] = useState<Record<string, boolean>>(() => draft?.completed ?? {});
+  const [answers, setAnswers] = useState<Record<string, any>>(() => draft?.answers ?? {});
   const [showDescModal, setShowDescModal] = useState<string | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -44,7 +43,26 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
     bottomCap: bottomCapQuestion?.label || '',
     joint: jointQuestion?.label || '',
   };
+  const questionByHotspot = {
+    tube: tubeQuestion,
+    connector: connectorQuestion,
+    bottomCap: bottomCapQuestion,
+    joint: jointQuestion,
+  };
+  const optionsByHotspot = {
+    tube: tubeOptions,
+    connector: connectorOptions,
+    bottomCap: bottomCapOptions,
+    joint: jointOptions,
+  };
   const hotspotMap = Object.fromEntries(hotspots.map(hotspot => [hotspot.id, hotspot]));
+  const hasViewedAny = Object.values(viewed).some(Boolean);
+  const assemblyHotspots = ['tube', 'connector', 'bottomCap', 'joint'].map(id => hotspotMap[id]).filter(Boolean);
+  const getQuestionButtonPosition = (hotspot: typeof assemblyHotspots[number]): React.CSSProperties => ({
+    left: `calc(${hotspot.x || '50%'} + 58px)`,
+    top: hotspot.y || '50%',
+    transform: 'translateY(-50%)',
+  });
 
   const isUnlocked = (_id: string) => true;
 
@@ -55,7 +73,9 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
 
   const confirmDesc = () => {
     if (showDescModal) {
-      setViewed({ ...viewed, [showDescModal]: true });
+      const nextViewed = { ...viewed, [showDescModal]: true };
+      setViewed(nextViewed);
+      saveStepDraft('3', { viewed: nextViewed, completed, answers });
       setShowDescModal(null);
     }
   };
@@ -68,8 +88,10 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
   const handleConfirmAnswer = (id: string) => {
     if (!selectedOption) return;
     const newAnswers = { ...answers, [id]: selectedOption };
+    const nextCompleted = { ...completed, [id]: true };
     setAnswers(newAnswers);
-    setCompleted({ ...completed, [id]: true });
+    setCompleted(nextCompleted);
+    saveStepDraft('3', { viewed, completed: nextCompleted, answers: newAnswers });
     setShowQuestionModal(null);
     setSelectedOption(null);
   };
@@ -94,42 +116,89 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
   }, [completed]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-13rem)]">
-      <TechnicalCard title={stepContent.diagramTitle} className="flex-1 flex flex-col">
-        <div className="w-full px-6 flex-1 flex flex-col justify-center">
+    <div className="space-y-6">
+      <TechnicalCard title={stepContent.diagramTitle}>
+        <div className="w-full">
           <WireframePlaceholder
             label={stepContent.diagramLabel}
-            className="py-4"
+            className="aspect-[21/9]"
             hotspots={[
-              { id: hotspotMap.tube?.label || '', label: hotspotMap.tube?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.tube?.x || '16%', top: hotspotMap.tube?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('tube'), selected: !!completed['tube'] },
-              ...(viewed['tube'] ? [{ id: `${completed['tube'] ? '\u2713' : '?'} ${questionLabels.tube}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.tube?.x || '16%'} + 28px)`, top: hotspotMap.tube?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('tube'), selected: !!completed['tube'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.joint?.label || '', label: hotspotMap.joint?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.joint?.x || '37%', top: hotspotMap.joint?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('joint'), selected: !!completed['joint'], className: hotspotMap.joint?.className || 'w-7 h-9' },
-              ...(viewed['joint'] ? [{ id: `${completed['joint'] ? '\u2713' : '?'} ${questionLabels.joint}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.joint?.x || '37%'} + 22px)`, top: hotspotMap.joint?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('joint'), selected: !!completed['joint'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.connector?.label || '', label: hotspotMap.connector?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.connector?.x || '50%', top: hotspotMap.connector?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('connector'), selected: !!completed['connector'] },
-              ...(viewed['connector'] ? [{ id: `${completed['connector'] ? '\u2713' : '?'} ${questionLabels.connector}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.connector?.x || '50%'} + 28px)`, top: hotspotMap.connector?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('connector'), selected: !!completed['connector'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
-              { id: hotspotMap.bottomCap?.label || '', label: hotspotMap.bottomCap?.label || '', labelPosition: 'bottom' as const, position: { left: hotspotMap.bottomCap?.x || '80%', top: hotspotMap.bottomCap?.y || '50%', transform: 'translate(-50%, -50%)' }, onClick: () => handleHotspotClick('bottomCap'), selected: !!completed['bottomCap'], className: hotspotMap.bottomCap?.className || 'w-7 h-9' },
-              ...(viewed['bottomCap'] ? [{ id: `${completed['bottomCap'] ? '\u2713' : '?'} ${questionLabels.bottomCap}`, label: '', labelPosition: 'right' as const, position: { left: `calc(${hotspotMap.bottomCap?.x || '80%'} + 22px)`, top: hotspotMap.bottomCap?.y || '50%', transform: 'translateY(-50%)' } as React.CSSProperties, onClick: () => openQuestion('bottomCap'), selected: !!completed['bottomCap'], className: 'min-w-20 h-7 px-2 text-[10px] whitespace-nowrap', zIndex: 20 }] : []),
+              ...assemblyHotspots.map(hotspot => ({
+                id: hotspot.label,
+                label: '',
+                labelPosition: 'bottom' as const,
+                position: { left: hotspot.x || '50%', top: hotspot.y || '50%', transform: 'translate(-50%, -50%)' },
+                onClick: () => handleHotspotClick(hotspot.id),
+                selected: !!viewed[hotspot.id],
+                className: cn(
+                  'min-w-24 h-8 rounded-sm px-2 whitespace-nowrap text-[10px]',
+                  hasViewedAny && !viewed[hotspot.id] && 'opacity-40'
+                ),
+              })),
+              ...assemblyHotspots.filter(hotspot => viewed[hotspot.id]).map(hotspot => ({
+                id: `${completed[hotspot.id] ? '\u2713' : '?'} ${questionLabels[hotspot.id as keyof typeof questionLabels]}`,
+                label: '',
+                labelPosition: 'right' as const,
+                position: getQuestionButtonPosition(hotspot),
+                onClick: () => openQuestion(hotspot.id),
+                selected: !!completed[hotspot.id],
+                className: 'min-w-24 h-7 px-2 text-[10px] whitespace-nowrap',
+                zIndex: 20,
+              })),
             ]}
           >
-            <AssemblyDiagram
-              viewed={viewed}
-              completed={completed}
-              answers={answers}
-              tubeOptions={tubeOptions}
-              connectorOptions={connectorOptions}
-              bottomCapOptions={bottomCapOptions}
-              jointOptions={jointOptions}
-              labels={{
-                tube: hotspotMap.tube?.label || '',
-                connector: hotspotMap.connector?.label || '',
-                joint: hotspotMap.joint?.label || '',
-                bottomCap: hotspotMap.bottomCap?.label || '',
-                bottomCapEnd: '\u5e95\u76d6',
-              }}
-              questionLabels={questionLabels}
-              onHotspotClick={handleHotspotClick}
-              onQuestionClick={openQuestion}
-            />
+            <div className="relative w-full aspect-[21/9] bg-[#f0f0f0] border-2 border-industrial-fg overflow-hidden group">
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#141414 1px, transparent 0)', backgroundSize: '30px 30px' }} />
+              <div className="absolute inset-x-[8%] top-1/2 -translate-y-1/2 h-16 border-2 border-industrial-fg/20 bg-white/50 flex items-center justify-center pointer-events-none">
+                <span className="text-4xl font-black opacity-5 uppercase tracking-[0.6em]">测斜管拼装</span>
+              </div>
+
+              {assemblyHotspots.map(hotspot => (
+                <button
+                  key={hotspot.id}
+                  type="button"
+                  onClick={() => handleHotspotClick(hotspot.id)}
+                  className={cn(
+                    "absolute min-w-24 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
+                    viewed[hotspot.id] ? "scale-110" : "hover:scale-125",
+                    hasViewedAny && !viewed[hotspot.id] && "opacity-50"
+                  )}
+                  style={{ left: hotspot.x || '50%', top: hotspot.y || '50%' }}
+                >
+                  <div className={cn(
+                    "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
+                    hasViewedAny && "hidden"
+                  )} />
+                  <div className={cn(
+                    "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
+                    viewed[hotspot.id] ? "bg-green-500 text-white" : "bg-white"
+                  )}>
+                    {hotspot.label}
+                  </div>
+
+                </button>
+              ))}
+
+              {assemblyHotspots.filter(hotspot => viewed[hotspot.id]).map(hotspot => (
+                <button
+                  key={`${hotspot.id}-question`}
+                  type="button"
+                  onClick={() => openQuestion(hotspot.id)}
+                  className={cn(
+                    "absolute -translate-y-1/2 z-30 flex items-center space-x-1 px-2 py-1 rounded-full border border-industrial-fg text-[10px] font-bold whitespace-nowrap transition-all",
+                    completed[hotspot.id] ? "bg-green-100 text-green-700" : "bg-white text-industrial-fg",
+                    !completed[hotspot.id] && "animate-breathing"
+                  )}
+                  style={getQuestionButtonPosition(hotspot)}
+                >
+                  <span className={cn(
+                    "w-4 h-4 rounded-full flex items-center justify-center text-[8px]",
+                    completed[hotspot.id] ? "bg-green-600 text-white" : "bg-industrial-fg text-white"
+                  )}>{completed[hotspot.id] ? '✓' : '?'}</span>
+                  <span>{questionLabels[hotspot.id as keyof typeof questionLabels]}</span>
+                </button>
+              ))}
+            </div>
           </WireframePlaceholder>
         </div>
       </TechnicalCard>
@@ -152,12 +221,12 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
 
       {/* Question Modals */}
       <AnimatePresence>
-        {showQuestionModal === 'tube' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.tube}>
+        {showQuestionModal && (
+          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels[showQuestionModal as keyof typeof questionLabels]}>
             <div className="space-y-4">
-              <p className="text-xs font-bold">{tubeQuestion?.prompt}</p>
+              <p className="text-xs font-bold">{questionByHotspot[showQuestionModal as keyof typeof questionByHotspot]?.prompt}</p>
               <div className="space-y-2">
-                {tubeOptions.map(opt => (
+                {optionsByHotspot[showQuestionModal as keyof typeof optionsByHotspot].map(opt => (
                   <button
                     key={opt.id}
                     onClick={() => setSelectedOption(opt.id)}
@@ -174,91 +243,7 @@ export const TubeAssembly: React.FC<{ onNext: (data: any) => void }> = ({ onNext
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('tube')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {showQuestionModal === 'connector' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.connector}>
-            <div className="space-y-4">
-              <p className="text-xs font-bold">{connectorQuestion?.prompt}</p>
-              <div className="space-y-2">
-                {connectorOptions.map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSelectedOption(opt.id)}
-                    className={cn(
-                      "w-full text-left p-3 text-xs border transition-all",
-                      selectedOption === opt.id
-                        ? "border-industrial-fg bg-industrial-fg text-white"
-                        : "border-industrial-fg/20 hover:border-industrial-fg"
-                    )}
-                  >
-                    <span className="font-bold mr-2">{opt.code}.</span>
-                    {opt.text}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('connector')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {showQuestionModal === 'bottomCap' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.bottomCap}>
-            <div className="space-y-4">
-              <p className="text-xs font-bold">{bottomCapQuestion?.prompt}</p>
-              <div className="space-y-2">
-                {bottomCapOptions.map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSelectedOption(opt.id)}
-                    className={cn(
-                      "w-full text-left p-3 text-xs border transition-all",
-                      selectedOption === opt.id
-                        ? "border-industrial-fg bg-industrial-fg text-white"
-                        : "border-industrial-fg/20 hover:border-industrial-fg"
-                    )}
-                  >
-                    <span className="font-bold mr-2">{opt.code}.</span>
-                    {opt.text}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('bottomCap')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {showQuestionModal === 'joint' && (
-          <Modal isOpen={true} onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} title={questionLabels.joint}>
-            <div className="space-y-4">
-              <p className="text-xs font-bold">{jointQuestion?.prompt}</p>
-              <div className="space-y-2">
-                {jointOptions.map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSelectedOption(opt.id)}
-                    className={cn(
-                      "w-full text-left p-3 text-xs border transition-all",
-                      selectedOption === opt.id
-                        ? "border-industrial-fg bg-industrial-fg text-white"
-                        : "border-industrial-fg/20 hover:border-industrial-fg"
-                    )}
-                  >
-                    <span className="font-bold mr-2">{opt.code}.</span>
-                    {opt.text}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer('joint')} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
+                <Button onClick={() => handleConfirmAnswer(showQuestionModal)} className="px-12" disabled={!selectedOption}>{'\u786e\u8ba4'}</Button>
               </div>
             </div>
           </Modal>

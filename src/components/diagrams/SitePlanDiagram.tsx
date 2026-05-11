@@ -74,7 +74,7 @@ export const SitePlanDiagram: React.FC<SitePlanDiagramProps> = ({
         >
           <div className={cn(
             "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
-            confirmedId === hp.id && "hidden"
+            confirmedId && "hidden"
           )} />
           <div className={cn(
             "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",

@@ -3,6 +3,8 @@ import hotspotsCsv from './training/hotspots.csv?raw';
 import questionsCsv from './training/questions.csv?raw';
 import optionsCsv from './training/options.csv?raw';
 import uiLabelsCsv from './training/uiLabels.csv?raw';
+import initialMeasurementDataCsv from './training/initialMeasurementData.csv?raw';
+import resourcesCsv from './training/resources.csv?raw';
 import { reportStepMap } from './reportStructure';
 import type { ChoiceQuestionConfig, FillRangeQuestionConfig, QuestionConfig, StepScoringConfig } from './scoringConfig';
 
@@ -52,6 +54,28 @@ export type TrainingOptionContent = {
   hotspotId?: string;
 };
 
+export type InitialMeasurementDataRow = {
+  depth: string;
+  a: string;
+  b: string;
+};
+
+export type TrainingResourceContent = {
+  resourceId: string;
+  stepId: string;
+  sourceKey: string;
+  type: string;
+  title: string;
+  displayLabel: string;
+  usage: string;
+  adminUploadHint: string;
+  visualDescription: string;
+  promptZh: string;
+  promptEn: string;
+  aspectRatio: string;
+  status: string;
+};
+
 const parseCsvLine = (line: string) => {
   const values: string[] = [];
   let current = '';
@@ -95,6 +119,8 @@ export const trainingSteps = parseCsv<TrainingStepContent>(stepsCsv);
 export const trainingHotspots = parseCsv<TrainingHotspotContent>(hotspotsCsv);
 export const trainingQuestions = parseCsv<TrainingQuestionContent>(questionsCsv);
 export const trainingOptions = parseCsv<TrainingOptionContent>(optionsCsv);
+export const initialMeasurementDataRows = parseCsv<InitialMeasurementDataRow>(initialMeasurementDataCsv);
+export const trainingResources = parseCsv<TrainingResourceContent>(resourcesCsv);
 
 const uiLabelRows = parseCsv<{ stepId: string; key: string; text: string }>(uiLabelsCsv);
 
@@ -111,6 +137,12 @@ export const getTrainingHotspots = (stepId: string) => trainingHotspots.filter(h
 export const getTrainingQuestion = (questionId: string) => trainingQuestions.find(question => question.questionId === questionId);
 
 export const getTrainingOptions = (questionId: string) => trainingOptions.filter(option => option.questionId === questionId);
+
+export const getTrainingResource = (resourceId: string) => trainingResources.find(resource => resource.resourceId === resourceId);
+
+export const getTrainingResourcesByStep = (stepId: string) => trainingResources.filter(resource => resource.stepId === stepId);
+
+export const getTrainingResourceByDisplayLabel = (displayLabel: string) => trainingResources.find(resource => resource.displayLabel === displayLabel);
 
 export const getUiLabel = (stepId: string, key: string, values?: Record<string, string | number>) => {
   const template = uiLabelRows.find(row => row.stepId === stepId && row.key === key)?.text || '';
