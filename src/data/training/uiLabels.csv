@@ -52,3 +52,15 @@ prep.connectivity,questionModalTitle,{value} 通槽复测判定
 prep.connectivity,judgeAction,通槽判定
 prep.connectivity,acknowledgeButton,知道了
 prep.connectivity,confirmButton,确认
+acq.safety,cardTitle,测前准备与安全防护
+acq.safety,weatherSectionTitle,环境确认
+acq.safety,weatherTypeLabel,单选
+acq.safety,weatherConfirmedLabel,已确认: {value}
+acq.safety,safetySectionTitle,安全防护
+acq.safety,safetyTypeLabel,多选
+acq.safety,safetySelectedLabel,已选: {value} 项
+acq.safety,instrumentSectionTitle,测量仪器
+acq.safety,instrumentTypeLabel,单选
+acq.safety,instrumentEquippedLabel,已装备: {value}
+acq.safety,selectButton,选择
+acq.safety,cancelButton,取消

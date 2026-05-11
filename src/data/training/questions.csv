@@ -21,3 +21,6 @@ prep.connectivity,prep.connectivity.cx03,全程阻力偏大,该孔通槽复测�
 prep.connectivity,prep.connectivity.cx04,16m处受阻,该孔通槽复测结论如何？应如何处理？,singleChoice,1,record16mBlockAndReport,,,,16m处重复受阻提示深部接头错位或管体变形风险，应记录受阻深度并上报，安排检查处理。
 prep.initialMeasurement,prep.initialMeasurement.condition,初测时机判断,根据当前测量条件，以下说法正确的是？,singleChoice,2,measureBeforeExcavationAfterStable,,,,初测应在基坑开挖前完成，并通过连续2~3次测量确认数据稳定后作为后续监测基准。
 prep.initialMeasurement,prep.initialMeasurement.data,数据有效性判断,根据测量数据概况，该数据能否作为后续监测的基准？,singleChoice,2,notValidNeedReverseAndRepeat,,,,仅测量1次且未做正反测，无法验证数据重复性和探头标定，应补做正反测并至少再测1~2次后再确定基准。
+acq.safety,acq.safety.weather,环境确认,请确认当日现场环境条件是否适宜开展测斜监测。,singleChoice,2,weatherCloudy,,,,适宜测量天气应为多云或晴、微风、无降水，气温适中，风力不超过4级，满足测斜仪器操作和人员安全要求。暴雨强风、6级大风和大雾低能见度均应暂停测量。
+acq.safety,acq.safety.equipment,安全防护,请选择进入施工现场必须的个人防护装备。,multiChoice,2,helmet;vest,,,,进入施工现场进行测斜监测时，安全帽和反光背心为必备防护装备。安全帽防止高处坠物伤害，反光背心提高人员可视性。防毒面具和护目镜在常规测斜监测中非必需装备。
+acq.safety,acq.safety.instrument,测量仪器,请选择本次深层水平位移监测使用的仪器。,singleChoice,2,slidingInclinometer,,,,滑动式测斜仪利用重力加速度传感器逐点测量管内倾斜角，推算水平位移累积量，是常规深层水平位移监测的标准手持测量仪器。固定式测斜仪为自动化方案，静力水准仪和收敛计用途不同。
