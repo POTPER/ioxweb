@@ -23,6 +23,8 @@ import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { loadTrainingSession, saveStepResult, clearTrainingSession } from './lib/trainingStorage';
+import { trainingStepsByAppId } from './data/trainingContent';
 
 function AppInner() {
   const [hasStarted, setHasStarted] = useState(false);
@@ -36,7 +38,7 @@ function AppInner() {
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [showFrameworkGuide, setShowFrameworkGuide] = useState(false);
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(new Set());
+  const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(() => new Set(loadTrainingSession().completedSteps as StepId[]));
   const [allUnlocked, setAllUnlocked] = useState(false);
   const [devSkipToMeasure, setDevSkipToMeasure] = useState(false);
   const devPanelRef = useRef<HTMLDivElement>(null);
@@ -74,31 +76,26 @@ function AppInner() {
   }, []);
   const [showTransition, setShowTransition] = useState(false);
 
-  const [stepData, setStepData] = useState<Record<string, any>>({});
+  const [stepData, setStepData] = useState<Record<string, any>>(() => loadTrainingSession().results);
 
   const handleFinish = () => {
     setReportData(generateMockReport("张三", stepData));
     setShowReport(true);
   };
 
-  const steps: { id: StepId; label: string; section: string; description: string }[] = [
-    { id: '1', label: '前期技术准备', section: '监测与准备', description: '任务说明：请在平面布置图中选择测斜管的布设位置，并填写测点间距。' },
-    { id: '2', label: '取料区域', section: '监测与准备', description: '任务说明：测斜管材料已到场入库，请选择正确的存放区域前往领料。' },
-    { id: '3', label: '管材拼装', section: '监测与准备', description: '任务说明：请完成测斜管的管材选型与拼装操作，点击图中各部件了解详情后完成配置。' },
-    { id: '4', label: '导管安装到钢筋笼', section: '监测与准备', description: '任务说明：请在截面图中选择测斜管安装位置，然后在立面图中完成高度和绑扎设置。' },
-    { id: '5', label: '管口验收', section: '监测与准备', description: '任务说明：请逐一检查各测斜孔的管口状态，识别缺陷并选择正确的处理方案。' },
-    { id: '6', label: '通畅性测试', section: '监测与准备', description: '任务说明：对各测斜孔逐一进行通槽检测，点击孔位查看检测结果并判定结论。' },
-    { id: '7', label: '初测(基准测量)', section: '监测与准备', description: '任务说明：请查看初测报告，确认测量条件并判断数据是否可作为监测基准。' },
-    { id: '8', label: '测前准备与安全防护', section: '数据采集', description: '任务说明：请确认现场环境条件，选择合适的装备，完成出发前的准备。' },
-    { id: '9', label: '读数仪设置与数据采集', section: '数据采集', description: '任务说明：请使用读数仪完成测孔CX-06的完整数据采集流程。' },
-    { id: '10', label: '数据导入与预处理', section: '数据处理', description: '任务说明：请连接读数仪，选择03区06孔，分析数据并补全遗漏的累计位移。' },
-    { id: '11', label: '监测日报表填写', section: '数据处理', description: '任务说明：请参照上期日报表，填写本期「深层水平位移监测日报表」。' },
-    { id: '12', label: '多期数据分析与预警判断', section: '数据处理', description: '任务说明：对比多期监测曲线，分析变形趋势，标注预警数据并判断预警等级。' },
-  ];
+  const steps: { id: StepId; label: string; section: string; description: string }[] = Object.values(trainingStepsByAppId)
+    .sort((a, b) => Number(a.appStepId) - Number(b.appStepId))
+    .map(step => ({
+      id: step.appStepId as StepId,
+      label: step.stepName,
+      section: step.section,
+      description: step.taskDescription,
+    }));
 
   const handleStepComplete = (data: any) => {
     if (data) {
       setStepData(prev => ({ ...prev, [currentStep]: data }));
+      saveStepResult(currentStep, data);
     }
     setCompletedSteps(prev => new Set(prev).add(currentStep));
     if (currentStep === '7') { setCurrentStep('8'); return; }
@@ -377,7 +374,7 @@ function AppInner() {
               查看评估报告
             </button>
             <button
-              onClick={() => { setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}
+              onClick={() => { clearTrainingSession(); setStepData({}); setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
             >
               重置到步骤1

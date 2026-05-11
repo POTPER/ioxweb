@@ -3,6 +3,7 @@ import { TechnicalCard, Button } from './Common';
 import ReactECharts from 'echarts-for-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { scoringConfigs } from '../data/scoringConfig';
 import { 
   User, Calendar, Clock, Award, BarChart3, ChevronDown, 
   ChevronRight, CheckCircle2, XCircle, FileText, Printer, 
@@ -19,7 +20,13 @@ export interface QuestionResult {
   maxScore: number;
   correct: boolean;
   userAnswer: string;
-  correctAnswer: string;
+  correctAnswer?: string;
+  userAnswerLabel?: string;
+  correctAnswerLabel?: string;
+  correctRange?: [number, number];
+  unit?: string;
+  analysis?: string;
+  explanation?: string;
 }
 
 export interface StepResult {
@@ -61,19 +68,45 @@ export interface ReportData {
 
 // --- Mock Data Generator (for demonstration) ---
 export const generateMockReport = (studentName: string, stepData?: Record<string, any>): ReportData => {
-  const getStep = (id: string) => stepData?.[id] || { score: 0, maxScore: 0, answers: [] };
+  const stepAliases = Object.fromEntries(
+    Object.values(scoringConfigs).map(config => [config.reportStepId, config.appStepId])
+  );
+  const legacyStepAliases: Record<string, string> = {
+    'Q01': 'prep.tech',
+    'Q02': 'prep.material',
+    'Q03': 'prep.assembly',
+    'Q04': 'prep.cage',
+    'S01': 'prep.tech',
+    'S02': 'prep.material',
+    'S03': 'prep.assembly',
+    'S04': 'prep.cage',
+    '4.2.1-1': 'prep.tech',
+    '4.2.1-2-1': 'prep.material',
+    '4.2.1-2-2': 'prep.assembly',
+    '4.2.1-2-3': 'prep.cage',
+  };
 
-  const m1Steps = ['4.2.1-1', '4.2.1-2-1', '4.2.1-2-2', '4.2.1-2-3', '4.2.1-3-1', '4.2.1-3-2', '4.2.1-4'];
+  const getStep = (id: string) => {
+    const alias = stepAliases[id];
+    const legacyAlias = legacyStepAliases[id];
+    const legacyAppAlias = legacyAlias ? stepAliases[legacyAlias] : undefined;
+    return stepData?.[id] || (alias ? stepData?.[alias] : undefined) || (legacyAlias ? stepData?.[legacyAlias] : undefined) || (legacyAppAlias ? stepData?.[legacyAppAlias] : undefined) || { score: 0, totalScore: 0, maxScore: 0, answers: [] };
+  };
+
+  const m1Steps = ['prep.tech', 'prep.material', 'prep.assembly', 'prep.cage', '4.2.1-3-1', '4.2.1-3-2', '4.2.1-4'];
   const m2Steps = ['4.2.2-1', '4.2.2-2'];
   const m3Steps = ['4.2.3-1', '4.2.3-2', '4.2.3-3'];
 
   const calculateModuleScore = (stepIds: string[]) => {
-    return stepIds.reduce((acc, id) => acc + (stepData?.[id]?.totalScore || stepData?.[id]?.score || 0), 0);
+    return stepIds.reduce((acc, id) => {
+      const step = getStep(id);
+      return acc + (step.totalScore || step.score || 0);
+    }, 0);
   };
 
   const calculateModuleMaxScore = (stepIds: string[]) => {
     const maxScores: Record<string, number> = {
-      '4.2.1-1': 5, '4.2.1-2-1': 2, '4.2.1-2-2': 8, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
+      'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
       '4.2.2-1': 4, '4.2.2-2': 21,
       '4.2.3-1': 15, '4.2.3-2': 15, '4.2.3-3': 20
     };
@@ -92,18 +125,27 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
 
   const formatSteps = (stepIds: string[]) => {
     const names: Record<string, string> = {
-      '4.2.1-1': '前期技术准备', '4.2.1-2-1': '取料区域', '4.2.1-2-2': '管材拼装', '4.2.1-2-3': '安装到钢筋笼', 
+      'prep.tech': '前期技术准备', 'prep.material': '取料区域', 'prep.assembly': '管材拼装', 'prep.cage': '导管安装到钢筋笼', '4.2.1-1': '前期技术准备', '4.2.1-2-1': '取料区域', '4.2.1-2-2': '管材拼装', '4.2.1-2-3': '安装到钢筋笼', 
       '4.2.1-3-1': '管口验收', '4.2.1-3-2': '通畅性测试', '4.2.1-4': '初测(基准测量)',
       '4.2.2-1': '测前准备与安全防护', '4.2.2-2': '读数仪设置与数据采集',
       '4.2.3-1': '数据导入与预处理', '4.2.3-2': '监测日报表填写', '4.2.3-3': '多期数据分析'
     };
-    return stepIds.map(id => ({
-      id,
-      name: names[id] || id,
-      score: stepData?.[id]?.totalScore || stepData?.[id]?.score || 0,
-      maxScore: calculateModuleMaxScore([id]),
-      questions: stepData?.[id]?.answers || []
-    }));
+    return stepIds.map(id => {
+      const step = getStep(id);
+      return {
+        id,
+        name: step.stepName || names[id] || id,
+        score: step.totalScore || step.score || 0,
+        maxScore: step.maxScore || calculateModuleMaxScore([id]),
+        questions: (step.answers || []).map((question: any) => ({
+          ...question,
+          id: question.id || question.questionId,
+          userAnswer: question.userAnswerLabel || question.userAnswer || '',
+          correctAnswer: question.correctAnswerLabel || question.correctAnswer || (question.correctRange ? `${question.correctRange[0]}-${question.correctRange[1]}${question.unit || ''}` : ''),
+          analysis: question.analysis || question.explanation || '暂无解析，请参考标准答案与评分规则。',
+        }))
+      };
+    });
   };
 
   return {
@@ -145,12 +187,12 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
       dimensions: ["安装规范知识", "验收检测能力", "设备操作能力", "数据采集规范", "数据分析能力", "异常诊断能力", "预警决策能力"],
       values: [
         (m1Score / m1Max) || 0,
-        (stepData?.['4.2.1-3-1']?.score + stepData?.['4.2.1-3-2']?.score) / 8 || 0,
-        (stepData?.['4.2.2-2']?.totalScore / 21) || 0,
-        (stepData?.['4.2.2-1']?.score / 4) || 0,
-        (stepData?.['4.2.3-2']?.totalScore / 15) || 0,
-        (stepData?.['4.2.3-1']?.totalScore / 15) || 0,
-        (stepData?.['4.2.3-3']?.totalScore / 20) || 0
+        ((getStep('4.2.1-3-1').score || 0) + (getStep('4.2.1-3-2').score || 0)) / 8 || 0,
+        (getStep('4.2.2-2').totalScore / 21) || 0,
+        (getStep('4.2.2-1').score / 4) || 0,
+        (getStep('4.2.3-2').totalScore / 15) || 0,
+        (getStep('4.2.3-1').totalScore / 15) || 0,
+        (getStep('4.2.3-3').totalScore / 20) || 0
       ]
     }
   };
@@ -218,24 +260,31 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
+  const questionCount = step.questions.length;
 
   return (
     <div className="border border-industrial-fg/10 bg-white">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 hover:bg-industrial-bg/5 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-industrial-bg/5 transition-colors"
       >
-        <div className="flex-1 flex items-center space-x-4">
-          <span className="text-[10px] font-mono opacity-40 w-16">{step.id}</span>
-          <span className="text-xs font-bold uppercase tracking-wider">{step.name}</span>
-          <div className="flex-1 max-w-xs h-1.5 bg-industrial-bg/10 relative">
+        <div className="flex-1 grid grid-cols-[1fr_auto_auto] items-center gap-3">
+          <div className="min-w-0 flex items-baseline gap-2">
+            <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
+            <div className="text-[9px] font-mono opacity-45 whitespace-nowrap">共 {questionCount} 题 · 满分 {step.maxScore} 分</div>
+          </div>
+          <div className="w-28 h-1 bg-industrial-bg/10 relative">
             <div 
               className={cn("absolute inset-y-0 left-0 transition-all duration-500", isWeak ? "bg-red-500" : "bg-industrial-fg")}
               style={{ width: `${percentage}%` }}
             />
           </div>
-          <span className="text-[10px] font-mono w-12 text-right">{step.score}/{step.maxScore}</span>
-          {percentage === 100 && <Award size={14} className="text-yellow-500" />}
+          <div className={cn(
+            "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
+            isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
+          )}>
+            {step.score}/{step.maxScore}
+          </div>
         </div>
         {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
@@ -248,22 +297,32 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-industrial-fg/10 bg-industrial-bg/5"
           >
-            <div className="p-4 space-y-2">
-              {step.questions.map(q => (
-                <div key={q.id} className="flex items-start justify-between p-2 bg-white border border-industrial-fg/5 text-[10px]">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
+            <div className="p-2 space-y-2">
+              {step.questions.map((q, index) => (
+                <div key={q.id} className="bg-white border border-industrial-fg/10 text-[10px]">
+                  <div className="flex items-center justify-between border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20">
+                    <div className="flex items-center space-x-2">
                       {q.correct ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-500" />}
-                      <span className="font-bold">{q.label}</span>
+                      <span className="font-bold">第 {index + 1} 题 · {q.label}</span>
                     </div>
-                    {!q.correct && (
-                      <div className="pl-5 space-y-1 opacity-60">
-                        <p>你的答案: <span className="text-red-500">{q.userAnswer}</span></p>
-                        <p>正确答案: <span className="text-green-600">{q.correctAnswer}</span></p>
-                      </div>
-                    )}
+                    <span className="font-mono font-bold">{q.score}/{q.maxScore}</span>
                   </div>
-                  <span className="font-mono">{q.score}/{q.maxScore}</span>
+                  <div className="p-2 space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      <div className="border border-industrial-fg/10 bg-industrial-bg/10 px-2 py-1.5">
+                        <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">你的答案</div>
+                        <div className={cn("font-bold", q.correct ? "text-green-600" : "text-red-500")}>{q.userAnswer || '未作答'}</div>
+                      </div>
+                      <div className="border border-green-200 bg-green-50 px-2 py-1.5">
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50">标准答案</div>
+                        <div className="font-bold text-green-700">{q.correctAnswer || '详见评分规则'}</div>
+                      </div>
+                    </div>
+                    <div className="border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
+                      <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">解析</div>
+                      <div className="opacity-75">{q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。'}</div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

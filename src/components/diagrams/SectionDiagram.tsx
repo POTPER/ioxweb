@@ -46,13 +46,13 @@ export const SectionDiagram: React.FC<SectionDiagramProps> = ({ hotspots, select
               <button
                 onClick={() => onHotspotClick(h.id)}
                 className={cn(
-                  "w-8 h-8 border-2 flex items-center justify-center transition-all",
+                  "min-w-28 h-10 px-3 border-2 flex items-center justify-center transition-all whitespace-nowrap",
                   isSelected
                     ? "bg-industrial-fg border-industrial-fg text-white"
                     : "bg-white border-industrial-fg/30 hover:border-industrial-fg animate-breathing"
                 )}
               >
-                <span className="text-xs font-bold">{h.id}</span>
+                <span className="text-[11px] font-bold">{h.title}</span>
               </button>
               {isSelected && (
                 <span className="text-[9px] font-bold text-green-600 mt-0.5 whitespace-nowrap">已安装</span>

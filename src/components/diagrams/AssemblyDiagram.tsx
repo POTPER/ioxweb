@@ -15,6 +15,7 @@ interface AssemblyDiagramProps {
   connectorOptions: { id: string; text: string }[];
   bottomCapOptions: { id: string; text: string }[];
   jointOptions: { id: string; text: string }[];
+  labels: Record<string, string>;
   onHotspotClick: (id: string) => void;
   onQuestionClick: (id: string) => void;
 }
@@ -73,13 +74,14 @@ const PartBox: React.FC<BoxProps> = ({
 export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
   viewed, completed, answers,
   tubeOptions, connectorOptions, bottomCapOptions, jointOptions,
+  labels,
   onHotspotClick, onQuestionClick,
 }) => {
   return (
     <div className="flex items-start gap-0 w-full">
       {/* #1 侧斜管（左段） */}
       <PartBox
-        flex="flex-[5]" label="侧斜管" hotspotId="tube" labelSize="text-sm"
+        flex="flex-[5]" label={labels.tube || '侧斜管'} hotspotId="tube" labelSize="text-sm"
         viewed={viewed['tube']} completed={completed['tube']}
         borderClass="rounded-l-lg border-[3px] border-r-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('tube')}
@@ -89,7 +91,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
 
       {/* #2 连接处2（左） */}
       <PartBox
-        flex="flex-[0.6]" label="连接处" hotspotId="joint" labelSize="text-[8px]"
+        flex="flex-[0.6]" label={labels.joint || '连接处'} hotspotId="joint" labelSize="text-[8px]"
         viewed={viewed['joint']} completed={completed['joint']}
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('joint')}
@@ -99,7 +101,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
 
       {/* #3 连接头 */}
       <PartBox
-        flex="flex-[1.5]" label="连接头" hotspotId="connector" labelSize="text-xs"
+        flex="flex-[1.5]" label={labels.connector || '连接头'} hotspotId="connector" labelSize="text-xs"
         viewed={viewed['connector']} completed={completed['connector']}
         borderClass="border-[3px] border-x-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('connector')}
@@ -109,7 +111,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
 
       {/* #4 连接处2（右） */}
       <PartBox
-        flex="flex-[0.6]" label="连接处" hotspotId="joint" labelSize="text-[8px]"
+        flex="flex-[0.6]" label={labels.joint || '连接处'} hotspotId="joint" labelSize="text-[8px]"
         viewed={viewed['joint']} completed={completed['joint']}
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('joint')}
@@ -119,7 +121,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
 
       {/* #5 侧斜管（右段） */}
       <PartBox
-        flex="flex-[5]" label="侧斜管" hotspotId="tube" labelSize="text-sm"
+        flex="flex-[5]" label={labels.tube || '侧斜管'} hotspotId="tube" labelSize="text-sm"
         viewed={viewed['tube']} completed={completed['tube']}
         borderClass="border-[3px] border-x-[1.5px] shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] hover:shadow-[3px_3px_0px_0px_rgba(20,20,20,0.3)]"
         onClick={() => onHotspotClick('tube')}
@@ -129,7 +131,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
 
       {/* #6 连接处1 */}
       <PartBox
-        flex="flex-[0.6]" label="连接处" hotspotId="bottomCap" labelSize="text-[8px]"
+        flex="flex-[0.6]" label={labels.bottomCap || '连接处'} hotspotId="bottomCap" labelSize="text-[8px]"
         viewed={viewed['bottomCap']} completed={completed['bottomCap']}
         borderClass="border-y-[3px] border-x-[1.5px]"
         onClick={() => onHotspotClick('bottomCap')}
@@ -140,7 +142,7 @@ export const AssemblyDiagram: React.FC<AssemblyDiagramProps> = ({
       {/* #7 底盖（纯视觉，不可点击） */}
       <div className="flex-[1.5] flex flex-col items-center">
         <div className="w-full h-24 rounded-r-lg border-[3px] border-l-[1.5px] transition-all duration-200 flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(20,20,20,0.15)] border-industrial-fg/60">
-          <span className="text-xs font-bold writing-vertical opacity-70">底盖</span>
+          <span className="text-xs font-bold writing-vertical opacity-70">{labels.bottomCapEnd || '底盖'}</span>
         </div>
         <div className="w-full min-h-[3rem]" />
       </div>

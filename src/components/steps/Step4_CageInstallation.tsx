@@ -6,6 +6,9 @@ import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { SectionDiagram } from '../diagrams/SectionDiagram';
 import { ElevationDiagram } from '../diagrams/ElevationDiagram';
+import { cageInstallationScoringConfig } from '../../data/scoringConfig';
+import { getTrainingHotspots, getUiLabel } from '../../data/trainingContent';
+import { calculateStepScore } from '../../lib/scoring';
 
 export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const [viewed, setViewed] = useState<Record<string, boolean>>({});
@@ -18,38 +21,40 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
   const modalJustClosed = useRef(false);
   const { wireframeMode } = useWireframe();
 
+  const cageHotspots = getTrainingHotspots('prep.cage');
+  const getQuestion = (questionId: string) => cageInstallationScoringConfig.questions.find(question => question.questionId === questionId && question.type === 'singleChoice');
+  const sectionQuestion = getQuestion('prep.cage.section');
+  const heightQuestion = getQuestion('prep.cage.height');
+  const spacingQuestion = getQuestion('prep.cage.spacing');
+  const tightnessQuestion = getQuestion('prep.cage.tightness');
+  const bindingHotspot = cageHotspots.find(hotspot => hotspot.hotspotId === 'cageBinding');
   const bindingDesc = {
-    title: '钢筋笼',
-    desc: '钢筋笼是地下连续墙的主要承力构件，由纵筋、箮筋和拉筋组成。测斜管通过钢丝绑扎固定在钢筋笼的主筋上，随钢筋笼一同下放入槽段。绑扎质量直接影响测斜管在混凝土浇筑过程中的稳定性和导槽的连续性。'
+    title: bindingHotspot?.title || '',
+    desc: bindingHotspot?.desc || '',
   };
-
-  const sectionHotspots = [
-    { id: 'A', title: '笼体内侧主筋处', desc: '钢筋笼迎向基坑内侧的纵筋位置。该处位于笼体内侧，下孔过程中不直接接触孔壁。测斜管固定在此处后随钢筋笼整体下放。', correct: true },
-    { id: 'B', title: '笼体基坑侧面', desc: '钢筋笼朝向基坑开挖面的一侧。该侧是围护结构承受侧向土压力的受力面，距开挖面最近。', correct: false },
-    { id: 'C', title: '笼体外侧主筋处', desc: '钢筋笼背向基坑的外侧纵筋位置。该处在下孔时靠近孔壁或导墙，空间相对紧凑。', correct: false },
-    { id: 'D', title: '笼体土侧面', desc: '钢筋笼朝向保留土体的一侧。该侧远离基坑开挖面，土压力方向与位移监测主方向存在夹角。', correct: false }
-  ];
-
-  const heightHotspots = [
-    { id: '1', title: '方案①', name: '底至笼底、顶超出地面0.5m', desc: '测斜管从钢筋笼底部延伸至地面以上约0.5m。管体覆盖钢筋笼全长，顶口高出地面便于后续测量入孔。', correct: true },
-    { id: '2', title: '方案②', name: '底至笼底、顶与地面齐平', desc: '测斜管从钢筋笼底部延伸至地面标高。管体覆盖钢筋笼全长，但顶口与地面齐平，无预留。', correct: false },
-    { id: '3', title: '方案③', name: '底高于笼底2m、顶超出地面0.5m', desc: '测斜管底部距笼底约2m，顶部超出地面0.5m。管体未覆盖笼底段。', correct: false },
-    { id: '4', title: '方案④', name: '底至笼底、顶低于地面1m', desc: '测斜管从笼底延伸至地面以下约1m处。管体覆盖笼底但顶口在地面以下。', correct: false }
-  ];
-
-  const spacingOptions = [
-    { id: 'A', text: '每隔1.0~1.5m设一道绑扎点', correct: true },
-    { id: 'B', text: '仅在管顶和管底各绑一道', correct: false },
-    { id: 'C', text: '每隔3~4m设一道绑扎点', correct: false },
-    { id: 'D', text: '每隔0.3m密集绑扎', correct: false }
-  ];
-
-  const tightnessOptions = [
-    { id: 'A', text: '适度绑扎，固定但不压迫管壁', correct: true },
-    { id: 'B', text: '尽量扎紧，防止任何松动', correct: false },
-    { id: 'C', text: '松散绑扎，允许管体自由滑动', correct: false },
-    { id: 'D', text: '用钢丝直接焊接在钢筋上', correct: false }
-  ];
+  const sectionHotspots = sectionQuestion?.type === 'singleChoice' ? sectionQuestion.options.map(option => ({
+    id: option.value,
+    title: option.label,
+    desc: option.desc,
+  })) : [];
+  const heightHotspots = heightQuestion?.type === 'singleChoice' ? heightQuestion.options.map(option => ({
+    id: option.value,
+    title: option.label,
+    code: option.code,
+    name: option.label,
+    desc: option.desc,
+  })) : [];
+  const spacingOptions = spacingQuestion?.type === 'singleChoice' ? spacingQuestion.options.map(option => ({
+    id: option.value,
+    code: option.code,
+    text: option.label,
+  })) : [];
+  const tightnessOptions = tightnessQuestion?.type === 'singleChoice' ? tightnessQuestion.options.map(option => ({
+    id: option.value,
+    code: option.code,
+    text: option.label,
+  })) : [];
+  const selectedHeightCode = heightHotspots.find(h => h.id === answers.height)?.code;
 
   const handleHotspotClick = (type: 'section' | 'height', id: string) => {
     setShowDescModal(`${type}:${id}`);
@@ -80,25 +85,14 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
   };
 
   const handleSubmit = () => {
-    const scoreMap = {
-      section: sectionHotspots.find(h => h.id === answers.section)?.correct ? 1 : 0,
-      height: heightHotspots.find(h => h.id === answers.height)?.correct ? 1 : 0,
-      spacing: spacingOptions.find(o => o.id === answers.spacing)?.correct ? 1 : 0,
-      tightness: tightnessOptions.find(o => o.id === answers.tightness)?.correct ? 1 : 0
-    };
+    const result = calculateStepScore(cageInstallationScoringConfig, [
+      { questionId: 'prep.cage.section', answer: answers.section },
+      { questionId: 'prep.cage.height', answer: answers.height },
+      { questionId: 'prep.cage.spacing', answer: answers.spacing },
+      { questionId: 'prep.cage.tightness', answer: answers.tightness },
+    ]);
 
-    onNext({
-      stepId: 'step4',
-      stepName: '导管安装到钢筋笼',
-      score: scoreMap.section + scoreMap.height + scoreMap.spacing + scoreMap.tightness,
-      maxScore: 4,
-      answers: [
-        { id: '2-3-1', label: '截面安装位置', score: scoreMap.section, maxScore: 1, correct: scoreMap.section === 1, userAnswer: answers.section, correctAnswer: 'A' },
-        { id: '2-3-2', label: '高度布置方案', score: scoreMap.height, maxScore: 1, correct: scoreMap.height === 1, userAnswer: answers.height, correctAnswer: '1' },
-        { id: '2-3-3', label: '绑扎间距', score: scoreMap.spacing, maxScore: 1, correct: scoreMap.spacing === 1, userAnswer: answers.spacing, correctAnswer: 'A' },
-        { id: '2-3-4', label: '绑扎松紧度', score: scoreMap.tightness, maxScore: 1, correct: scoreMap.tightness === 1, userAnswer: answers.tightness, correctAnswer: 'A' }
-      ]
-    });
+    onNext(result);
   };
 
   const confirmBinding = () => {
@@ -117,9 +111,9 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left: Section View */}
-        <TechnicalCard title="截面图（基坑与钢筋笼）">
+        <TechnicalCard title={getUiLabel('prep.cage', 'sectionCardTitle')}>
           <WireframePlaceholder
-            label="img:截面图-基坑与钢筋笼"
+            label={getUiLabel('prep.cage', 'sectionDiagramLabel')}
             className="aspect-square"
             hotspots={sectionHotspots.map((h, i) => {
               const positions: React.CSSProperties[] = [
@@ -129,9 +123,10 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                 { top: '50%', left: '10%', transform: 'translate(-50%, -50%)' }
               ];
               return {
-                id: h.id,
-                label: h.title,
+                id: h.title,
+                label: '',
                 labelPosition: 'bottom' as const,
+                className: 'min-w-28 h-10 px-3 text-[11px] whitespace-nowrap',
                 position: positions[i],
                 onClick: () => handleHotspotClick('section', h.id),
                 selected: answers.section === h.id,
@@ -147,16 +142,16 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
         </TechnicalCard>
 
         {/* Right: Elevation View */}
-        <TechnicalCard title="立面图（钢筋笼立面）">
+        <TechnicalCard title={getUiLabel('prep.cage', 'elevationCardTitle')}>
           <div className="relative bg-white border border-industrial-fg/20 flex flex-col">
             {/* Main diagram area */}
             <WireframePlaceholder
-              label={answers.height ? `img:立面图-方案${answers.height}` : 'img:立面图-默认'}
+              label={answers.height ? getUiLabel('prep.cage', 'elevationPlanLabel', { value: selectedHeightCode || '' }) : getUiLabel('prep.cage', 'elevationDefaultLabel')}
               className="h-[320px]"
               hotspots={[
                 {
                   id: '笼体',
-                  label: '钢筋笼介绍',
+                  label: getUiLabel('prep.cage', 'bindingIntroAction'),
                   labelPosition: 'right' as const,
                   position: { top: '50%', left: '40%', transform: 'translate(-50%, -50%)' },
                   onClick: () => { if (!modalJustClosed.current) setShowBindingModal(true); },
@@ -164,20 +159,20 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                 },
                 ...(viewed['binding'] ? [
                   {
-                    id: completed['spacing'] ? '✓' : '?',
-                    label: '绑扎间距',
+                    id: `${completed['spacing'] ? '✓' : '?'} ${getUiLabel('prep.cage', 'spacingAction')}`,
+                    label: '',
                     labelPosition: 'right' as const,
-                    className: 'w-5 h-5 rounded-full text-[9px]',
+                    className: 'min-w-16 h-7 px-2 text-[10px] whitespace-nowrap',
                     position: { top: '33%', left: 'calc(40% + 32px)', transform: 'translateY(-50%)' } as React.CSSProperties,
                     onClick: () => openQuestion('spacing'),
                     selected: !!completed['spacing'],
                     zIndex: 20,
                   },
                   {
-                    id: completed['tightness'] ? '✓' : '?',
-                    label: '绑扎松紧',
+                    id: `${completed['tightness'] ? '✓' : '?'} ${getUiLabel('prep.cage', 'tightnessAction')}`,
+                    label: '',
                     labelPosition: 'right' as const,
-                    className: 'w-5 h-5 rounded-full text-[9px]',
+                    className: 'min-w-16 h-7 px-2 text-[10px] whitespace-nowrap',
                     position: { top: '66%', left: 'calc(40% + 32px)', transform: 'translateY(-50%)' } as React.CSSProperties,
                     onClick: () => openQuestion('tightness'),
                     selected: !!completed['tightness'],
@@ -190,7 +185,9 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                 viewedBinding={!!viewed['binding']}
                 completedSpacing={!!completed['spacing']}
                 completedTightness={!!completed['tightness']}
-                selectedHeight={answers.height}
+                selectedHeight={selectedHeightCode}
+                spacingLabel={getUiLabel('prep.cage', 'spacingAction')}
+                tightnessLabel={getUiLabel('prep.cage', 'tightnessAction')}
                 onCageClick={() => { if (!modalJustClosed.current) setShowBindingModal(true); }}
                 onQuestionClick={(type) => openQuestion(type)}
               />
@@ -198,7 +195,7 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
 
             {/* Prompt text */}
             <div className="px-4 py-2 text-center">
-              <span className="text-xs font-bold text-industrial-fg">请选择合理的布置方案。</span>
+              <span className="text-xs font-bold text-industrial-fg">{heightQuestion?.prompt}</span>
             </div>
 
             {/* Bottom: 4 scheme selectors in a horizontal row */}
@@ -218,7 +215,7 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                           completed['height'] && !isSelected && "opacity-30"
                         )}
                       >
-                        {h.id}{h.title}
+                        {h.title}
                       </button>
                     );
                   })
@@ -230,25 +227,14 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                         key={h.id}
                         onClick={() => handleHotspotClick('height', h.id)}
                         className={cn(
-                          "flex flex-col items-center gap-1 px-3 py-2 rounded transition-all",
+                          "min-w-20 h-8 px-3 border-2 flex items-center justify-center text-xs transition-all",
                           isSelected
-                            ? "bg-industrial-fg/5 ring-1 ring-industrial-fg"
-                            : "hover:bg-industrial-bg",
+                            ? "border-industrial-fg bg-industrial-fg text-white font-bold"
+                            : "border-industrial-fg/30 bg-white hover:border-industrial-fg",
                           completed['height'] && !isSelected && "opacity-30"
                         )}
                       >
-                        <div className={cn(
-                          "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all",
-                          isSelected
-                            ? "bg-industrial-fg border-industrial-fg text-white"
-                            : "bg-white border-industrial-fg/30"
-                        )}>
-                          {h.id}
-                        </div>
-                        <span className={cn("text-[9px] whitespace-nowrap", isSelected ? "font-bold" : "opacity-60")}>{h.title}</span>
-                        {isSelected && (
-                          <span className="text-[9px] font-bold text-green-600">已选择</span>
-                        )}
+                        {h.title}
                       </button>
                     );
                   })
@@ -281,8 +267,8 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
             })()}
           </p>
           <div className="flex space-x-3">
-            <Button onClick={confirmDesc} className="flex-1">选择</Button>
-            <Button variant="secondary" onClick={() => setShowDescModal(null)} className="flex-1">取消</Button>
+            <Button onClick={confirmDesc} className="flex-1">{getUiLabel('prep.cage', 'selectButton')}</Button>
+            <Button variant="secondary" onClick={() => setShowDescModal(null)} className="flex-1">{getUiLabel('prep.cage', 'cancelButton')}</Button>
           </div>
         </div>
       </Modal>
@@ -295,7 +281,7 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
       >
         <div className="space-y-6">
           <p className="text-xs leading-relaxed opacity-80">{bindingDesc.desc}</p>
-          <Button onClick={confirmBinding} className="w-full">知道了</Button>
+          <Button onClick={confirmBinding} className="w-full">{getUiLabel('prep.cage', 'acknowledgeButton')}</Button>
         </div>
       </Modal>
 
@@ -305,13 +291,13 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
           <Modal 
             isOpen={true} 
             onClose={() => { setShowQuestionModal(null); setSelectedOption(null); }} 
-            title={showQuestionModal === 'spacing' ? "绑扎间距" : "绑扎松紧度"}
+            title={showQuestionModal === 'spacing' ? spacingQuestion?.label : tightnessQuestion?.label}
           >
             <div className="space-y-4">
               <p className="text-xs font-bold">
                 {showQuestionModal === 'spacing' 
-                  ? "测斜管绑扎点的间距应如何设置？" 
-                  : "测斜管与钢筋笼的绑扎松紧度应如何控制？"}
+                  ? spacingQuestion?.prompt 
+                  : tightnessQuestion?.prompt}
               </p>
               <div className="space-y-2">
                 {(showQuestionModal === 'spacing' ? spacingOptions : tightnessOptions).map(opt => (
@@ -325,13 +311,13 @@ export const CageInstallation: React.FC<{ onNext: (data: any) => void }> = ({ on
                         : "border-industrial-fg/20 hover:border-industrial-fg"
                     )}
                   >
-                    <span className="font-bold mr-2">{opt.id}.</span>
+                    <span className="font-bold mr-2">{opt.code}.</span>
                     {opt.text}
                   </button>
                 ))}
               </div>
               <div className="flex justify-center pt-4 border-t border-industrial-fg/10">
-                <Button onClick={() => handleConfirmAnswer(showQuestionModal)} className="px-12" disabled={!selectedOption}>确认</Button>
+                <Button onClick={() => handleConfirmAnswer(showQuestionModal)} className="px-12" disabled={!selectedOption}>{getUiLabel('prep.cage', 'confirmButton')}</Button>
               </div>
             </div>
           </Modal>

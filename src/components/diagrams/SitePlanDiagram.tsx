@@ -66,22 +66,22 @@ export const SitePlanDiagram: React.FC<SitePlanDiagramProps> = ({
           onMouseEnter={() => onHotspotHover?.(hp.id)}
           onMouseLeave={() => onHotspotHover?.(null)}
           className={cn(
-            "absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center transition-all duration-300 z-20",
+            "absolute min-w-16 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
             confirmedId === hp.id ? "scale-110" : "hover:scale-125",
             confirmedId && confirmedId !== hp.id && "opacity-50"
           )}
           style={{ left: hp.x, top: hp.y }}
         >
           <div className={cn(
-            "absolute inset-0 rounded-full border-2 border-industrial-fg animate-ping opacity-20",
+            "absolute inset-0 rounded-sm border-2 border-industrial-fg animate-ping opacity-20",
             confirmedId === hp.id && "hidden"
           )} />
           <div className={cn(
-            "w-full h-full rounded-full border-2 border-industrial-fg flex items-center justify-center font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
+            "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
             confirmedId === hp.id ? "bg-green-500 text-white" : 
             selectedId === hp.id ? "bg-industrial-fg text-white" : "bg-white"
           )}>
-            {hp.id}
+            {hp.name}
           </div>
           
           {/* [?]/[v] Marker */}

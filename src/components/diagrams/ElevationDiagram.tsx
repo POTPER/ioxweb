@@ -13,6 +13,8 @@ interface ElevationDiagramProps {
   completedSpacing: boolean;
   completedTightness: boolean;
   selectedHeight?: string;
+  spacingLabel?: string;
+  tightnessLabel?: string;
   onCageClick: () => void;
   onQuestionClick: (type: 'spacing' | 'tightness') => void;
 }
@@ -22,6 +24,8 @@ export const ElevationDiagram: React.FC<ElevationDiagramProps> = ({
   completedSpacing,
   completedTightness,
   selectedHeight,
+  spacingLabel = '绑扎间距',
+  tightnessLabel = '绑扎松紧',
   onCageClick,
   onQuestionClick,
 }) => {
@@ -88,16 +92,13 @@ export const ElevationDiagram: React.FC<ElevationDiagramProps> = ({
           className="absolute z-20 flex items-center"
           style={{ top: '33%', left: 'calc(50% + 48px)', transform: 'translateY(-50%)' }}
         >
-          <div className="flex flex-col items-center">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-              !completedSpacing
-                ? "border-yellow-500 bg-yellow-500 animate-breathing"
-                : "border-green-600 bg-green-600"
-            )}>
-              {!completedSpacing ? <span className="text-white text-[9px] font-bold">?</span> : <span className="text-white text-[8px] font-bold">✓</span>}
-            </div>
-            <span className="text-[8px] mt-0.5 whitespace-nowrap opacity-60">绑扎间距</span>
+          <div className={cn(
+            "min-w-16 h-7 px-2 border-2 flex items-center justify-center text-[10px] font-bold transition-all whitespace-nowrap",
+            !completedSpacing
+              ? "border-yellow-500 bg-white text-yellow-700 animate-breathing"
+              : "border-green-600 bg-green-600 text-white"
+          )}>
+            {completedSpacing ? '✓' : '?'} {spacingLabel}
           </div>
         </button>
       )}
@@ -109,16 +110,13 @@ export const ElevationDiagram: React.FC<ElevationDiagramProps> = ({
           className="absolute z-20 flex items-center"
           style={{ top: '66%', left: 'calc(50% + 48px)', transform: 'translateY(-50%)' }}
         >
-          <div className="flex flex-col items-center">
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-              !completedTightness
-                ? "border-yellow-500 bg-yellow-500 animate-breathing"
-                : "border-green-600 bg-green-600"
-            )}>
-              {!completedTightness ? <span className="text-white text-[9px] font-bold">?</span> : <span className="text-white text-[8px] font-bold">✓</span>}
-            </div>
-            <span className="text-[8px] mt-0.5 whitespace-nowrap opacity-60">绑扎松紧</span>
+          <div className={cn(
+            "min-w-16 h-7 px-2 border-2 flex items-center justify-center text-[10px] font-bold transition-all whitespace-nowrap",
+            !completedTightness
+              ? "border-yellow-500 bg-white text-yellow-700 animate-breathing"
+              : "border-green-600 bg-green-600 text-white"
+          )}>
+            {completedTightness ? '✓' : '?'} {tightnessLabel}
           </div>
         </button>
       )}

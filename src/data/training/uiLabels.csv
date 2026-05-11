@@ -1,0 +1,27 @@
+stepId,key,text
+prep.tech,spacingActionEmpty,请布置监测间距
+prep.tech,spacingActionDone,监测间距已配置({value}m)
+prep.tech,spacingModalTitle,布置监测间距
+prep.tech,spacingInputLabel,测点间距
+prep.tech,spacingInputPlaceholder,请输入整数
+prep.material,inspectionActionEmpty,领料检查
+prep.material,inspectionActionDone,领料检查({value})
+prep.material,inspectionDoneLabel,领料检查已完成 ({value})
+prep.assembly,tubeAction,管材选型
+prep.assembly,connectorAction,连接头选型
+prep.assembly,bottomCapAction,底盖操作
+prep.assembly,jointAction,管节连接
+prep.cage,sectionCardTitle,截面图（基坑与钢筋笼）
+prep.cage,sectionDiagramLabel,img:截面图-基坑与钢筋笼
+prep.cage,elevationCardTitle,立面图（钢筋笼立面）
+prep.cage,elevationDefaultLabel,img:立面图-默认
+prep.cage,elevationPlanLabel,img:立面图-方案{value}
+prep.cage,elevationPrompt,请选择合理的布置方案。
+prep.cage,bindingIntroAction,钢筋笼介绍
+prep.cage,spacingAction,绑扎间距
+prep.cage,tightnessAction,绑扎松紧
+prep.cage,selectedLabel,已选择
+prep.cage,selectButton,选择
+prep.cage,cancelButton,取消
+prep.cage,acknowledgeButton,知道了
+prep.cage,confirmButton,确认

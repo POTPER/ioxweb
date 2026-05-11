@@ -4,6 +4,9 @@ import { cn } from '../../lib/utils';
 import { CheckCircle2 } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
+import { materialPickupScoringConfig } from '../../data/scoringConfig';
+import { getUiLabel, trainingStepsByStepId } from '../../data/trainingContent';
+import { calculateStepScore } from '../../lib/scoring';
 
 export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
@@ -13,44 +16,21 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [inspectionAnswer, setInspectionAnswer] = useState<string | null>(null);
   const [tempInspectionAnswer, setTempInspectionAnswer] = useState<string | null>(null);
+  const stepContent = trainingStepsByStepId['prep.material'];
 
-  const areas = [
-    { 
-      id: 'A', 
-      name: '基坑坡顶平台', 
-      x: '20%', 
-      y: '30%', 
-      desc: '基坑开挖边线外侧的硬化平台，紧邻基坑边缘，设有安全围挡和警示标识，地面可见测量控制桩和施工放线标记。' 
-    },
-    { 
-      id: 'B', 
-      name: '现场材料库房内', 
-      x: '60%', 
-      y: '25%', 
-      desc: '施工现场的封闭式临时库房，室内配有通风窗和温湿度计，各类材料分架存放，设有材料台账和领料登记簿。' 
-    },
-    { 
-      id: 'C', 
-      name: '钢筋笼绑扎区', 
-      x: '25%', 
-      y: '75%', 
-      desc: '施工现场的钢筋笼预制加工区域，地面摆放有已成型和待绑扎的钢筋笼，旁边有绑扎工具和铁丝等辅材。' 
-    },
-    { 
-      id: 'D', 
-      name: '材料暂存区顶棚下方', 
-      x: '75%', 
-      y: '65%', 
-      desc: '施工现场的露天材料暂存区域，上方有简易顶棚遮蔽，地面铺设枕木隔潮，各类建材按品种分区码放，设有材料标识牌。' 
-    },
-  ];
-
-  const inspectionOptions = [
-    { id: 'A', text: '核对产品合格证与装箱清单' },
-    { id: 'B', text: '检查管体有无扭曲变形' },
-    { id: 'C', text: '测量管体实际长度' },
-    { id: 'D', text: '清洗管体内外表面' },
-  ];
+  const areaQuestion = materialPickupScoringConfig.questions.find(q => q.questionId === 'prep.material.area' && q.type === 'singleChoice');
+  const inspectionQuestion = materialPickupScoringConfig.questions.find(q => q.questionId === 'prep.material.inspection' && q.type === 'singleChoice');
+  const areas = areaQuestion?.type === 'singleChoice' ? areaQuestion.options.map(option => ({
+    id: option.value,
+    name: option.label,
+    x: option.x ?? '50%',
+    y: option.y ?? '50%',
+    desc: option.desc,
+  })) : [];
+  const inspectionOptions = inspectionQuestion?.type === 'singleChoice' ? inspectionQuestion.options.map(option => ({
+    id: option.value,
+    text: option.label,
+  })) : [];
 
   useEffect(() => {
     if (confirmedArea && inspectionAnswer) {
@@ -77,58 +57,43 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   };
 
   const handleSubmit = () => {
-    const score1 = confirmedArea === 'B' ? 1 : 0;
-    const score2 = inspectionAnswer === 'B' ? 1 : 0;
+    const result = calculateStepScore(materialPickupScoringConfig, [
+      { questionId: 'prep.material.area', answer: confirmedArea },
+      { questionId: 'prep.material.inspection', answer: inspectionAnswer },
+    ]);
     
     onNext({
-      stepId: 'step2',
-      stepName: '取料区域',
-      answers: [
-        {
-          questionId: '1-2-1',
-          type: 'choice',
-          label: '取料区域热点选取',
-          userAnswer: confirmedArea,
-          correctAnswer: 'B',
-          score: score1,
-          maxScore: 1
-        },
-        {
-          questionId: '1-2-1b',
-          type: 'choice',
-          label: '领料检查',
-          userAnswer: inspectionAnswer,
-          correctAnswer: 'B',
-          score: score2,
-          maxScore: 1
-        }
-      ]
+      ...result,
     });
   };
 
   const currentAreaData = areas.find(a => a.id === selectedArea);
   const confirmedAreaData = areas.find(a => a.id === confirmedArea);
+  const inspectionAnswerLabel = inspectionOptions.find(option => option.id === inspectionAnswer)?.id || '';
 
   return (
     <div className="space-y-6">
       <div>
-          <TechnicalCard title="施工现场场景图">
+          <TechnicalCard title={stepContent.diagramTitle}>
             <WireframePlaceholder
-              label="img:施工现场鸟瞰场景图"
+              label={stepContent.diagramLabel}
               className="aspect-[21/9]"
               forceWireframe
               hotspots={[
                 ...areas.map(area => ({
-                  id: area.id,
-                  label: area.name,
-                  labelPosition: 'bottom' as const,
+                  id: area.name,
+                  label: '',
                   position: { left: area.x, top: area.y, transform: 'translate(-50%, -50%)' },
                   onClick: () => handleAreaClick(area.id),
                   selected: confirmedArea === area.id,
+                  className: cn(
+                    'min-w-20 h-8 rounded-sm px-2 whitespace-nowrap text-[10px]',
+                    confirmedArea && confirmedArea !== area.id && 'opacity-40'
+                  ),
                 })),
                 ...(confirmedArea ? [{
                   id: inspectionAnswer ? '✓' : '?',
-                  label: inspectionAnswer ? `领料检查(${inspectionAnswer})` : '领料检查',
+                  label: inspectionAnswer ? getUiLabel('prep.material', 'inspectionActionDone', { value: inspectionAnswerLabel }) : getUiLabel('prep.material', 'inspectionActionEmpty'),
                   labelPosition: 'right' as const,
                   className: 'w-5 h-5 rounded-full text-[9px]',
                   position: {
@@ -159,18 +124,18 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                     key={area.id}
                     onClick={() => handleAreaClick(area.id)}
                     className={cn(
-                      "absolute w-10 h-10 -ml-5 -mt-5 flex items-center justify-center transition-all duration-300 z-20",
-                      confirmedArea === area.id ? "scale-110" : "hover:scale-125",
+                      "absolute min-w-20 h-8 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center transition-all duration-300 z-20",
+                      confirmedArea === area.id ? "scale-110" : "hover:scale-110",
                       confirmedArea && confirmedArea !== area.id && "opacity-50"
                     )}
                     style={{ left: area.x, top: area.y }}
                   >
                     <div className={cn(
-                      "w-full h-full border-2 border-industrial-fg flex items-center justify-center font-bold text-xs transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
+                      "w-full h-full rounded-sm border-2 border-industrial-fg flex items-center justify-center px-2 whitespace-nowrap font-bold text-[10px] transition-colors shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]",
                       confirmedArea === area.id ? "bg-green-500 text-white" : 
                       selectedArea === area.id ? "bg-industrial-fg text-white" : "bg-white"
                     )}>
-                      {area.id}
+                      {area.name}
                     </div>
 
                     {/* [?]/[v] Marker */}
@@ -190,7 +155,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                           {inspectionAnswer ? (
                             <>
                               <CheckCircle2 size={12} />
-                              <span>领料检查已完成 ({inspectionAnswer})</span>
+                              <span>{getUiLabel('prep.material', 'inspectionDoneLabel', { value: inspectionAnswerLabel })}</span>
                             </>
                           ) : (
                             <>
@@ -212,7 +177,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       <Modal 
         isOpen={showAreaModal} 
         onClose={handleCloseAreaModal} 
-        title={`${currentAreaData?.id} — ${currentAreaData?.name}`}
+        title={currentAreaData?.name}
       >
         <div className="space-y-6">
           <div className="border-b border-industrial-fg pb-4">
@@ -237,7 +202,7 @@ export const MaterialPickup: React.FC<{ onNext: (data: any) => void }> = ({ onNe
         title="领料检查"
       >
         <div className="space-y-6">
-          <p className="text-xs font-bold">到达存放区域后，领取测斜管前应首先进行什么操作？</p>
+          <p className="text-xs font-bold">{inspectionQuestion?.prompt}</p>
           <div className="space-y-2">
             {inspectionOptions.map((opt) => (
               <button

@@ -5,6 +5,9 @@ import { CheckCircle2 } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { SitePlanDiagram } from '../diagrams/SitePlanDiagram';
+import { technicalPreparationScoringConfig } from '../../data/scoringConfig';
+import { getUiLabel, trainingStepsByStepId } from '../../data/trainingContent';
+import { calculateStepScore } from '../../lib/scoring';
 
 export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
@@ -16,41 +19,18 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
   const [showHotspotModal, setShowHotspotModal] = useState(false);
   const [hotspotViewed, setHotspotViewed] = useState<string[]>([]);
   const [modifyCount, setModifyCount] = useState(0);
+  const stepContent = trainingStepsByStepId['prep.tech'];
 
-  const hotspots = [
-    { 
-      id: 'CX1', 
-      name: '冠梁', 
-      x: '20%', 
-      y: '35%', 
-      desc: '冠梁是连接各围护桩/墙顶部的钢筋混凝土梁，位于基坑围护结构的顶部，沿基坑周圈设置。',
-      isCorrect: true
-    },
-    { 
-      id: 'CX2', 
-      name: '周边道路', 
-      x: '45%', 
-      y: '85%', 
-      desc: '基坑外侧的市政道路区域，地下分布有污水干管DN300等市政管线，地面有施工车辆通行。',
-      isCorrect: false
-    },
-    { 
-      id: 'CX3', 
-      name: '基坑开挖区', 
-      x: '40%', 
-      y: '55%', 
-      desc: '基坑开挖区域内部，当前开挖深度12m，底部为基坑作业面。',
-      isCorrect: false
-    },
-    { 
-      id: 'CX4', 
-      name: '周边建筑', 
-      x: '85%', 
-      y: '60%', 
-      desc: '基坑东侧邻近商业楼，距基坑边缘约12m，为既有多层建筑。',
-      isCorrect: false
-    },
-  ];
+  const pointQuestion = technicalPreparationScoringConfig.questions.find(q => q.questionId === 'prep.tech.location' && q.type === 'singleChoice');
+  const spacingQuestion = technicalPreparationScoringConfig.questions.find(q => q.questionId === 'prep.tech.spacing' && q.type === 'fillRange');
+  const hotspots = pointQuestion?.type === 'singleChoice' ? pointQuestion.options.map(option => ({
+    id: option.value,
+    name: option.label,
+    x: option.x ?? '50%',
+    y: option.y ?? '50%',
+    desc: option.desc,
+    isCorrect: option.value === pointQuestion.correctAnswer,
+  })) : [];
 
   const handleHotspotClick = (id: string) => {
     setSelectedHotspot(id);
@@ -90,39 +70,18 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
   };
 
   const handleSubmit = () => {
-    const spacingNum = parseInt(spacing);
-    const score1 = confirmedHotspot === 'CX1' ? 3 : 0;
-    const score2 = (spacingNum >= 20 && spacingNum <= 60) ? 2 : 0;
+    const result = calculateStepScore(technicalPreparationScoringConfig, [
+      { questionId: 'prep.tech.location', answer: confirmedHotspot },
+      { questionId: 'prep.tech.spacing', answer: spacing },
+    ]);
     
     onNext({
-      stepId: 'step1',
-      stepName: '前期技术准备',
-      submittedAt: new Date().toISOString(),
-      answers: [
-        {
-          questionId: '1-1-1',
-          type: 'choice',
-          label: '平面图选点',
-          userAnswer: confirmedHotspot,
-          correctAnswer: 'CX1',
-          score: score1,
-          maxScore: 3
-        },
-        {
-          questionId: '1-1-2',
-          type: 'fill',
-          label: '测点间距',
-          userAnswer: spacing,
-          correctRange: [20, 60],
-          unit: 'm',
-          score: score2,
-          maxScore: 2,
-          modifyCount: Math.max(0, modifyCount - 1)
-        }
-      ],
+      ...result,
+      answers: result.answers.map(answer => answer.questionId === 'prep.tech.spacing' ? {
+        ...answer,
+        modifyCount: Math.max(0, modifyCount - 1),
+      } : answer),
       hotspotViewed,
-      totalScore: score1 + score2,
-      maxScore: 5
     });
   };
 
@@ -131,26 +90,25 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
 
   return (
     <div className="space-y-6">
-      <TechnicalCard title="基坑支护平面布置图">
+      <TechnicalCard title={stepContent.diagramTitle}>
         <WireframePlaceholder
-          label="img:基坑支护平面布置图"
+          label={stepContent.diagramLabel}
           className="aspect-[21/9]"
           hotspots={[
             ...hotspots.map(hp => ({
-              id: hp.id,
-              label: hp.name,
-              labelPosition: 'bottom' as const,
+              id: hp.name,
+              label: '',
               position: { left: hp.x, top: hp.y, transform: 'translate(-50%, -50%)' },
               onClick: () => handleHotspotClick(hp.id),
               selected: confirmedHotspot === hp.id,
               className: cn(
-                'w-9 h-9 rounded-full',
+                'min-w-16 h-8 rounded-sm px-2 whitespace-nowrap text-[10px]',
                 confirmedHotspot && confirmedHotspot !== hp.id && 'opacity-40'
               ),
             })),
             ...(confirmedHotspot ? [{
               id: spacing ? '✓' : '?',
-              label: spacing ? `监测间距已配置(${spacing}m)` : '请布置监测间距',
+              label: spacing ? getUiLabel('prep.tech', 'spacingActionDone', { value: spacing }) : getUiLabel('prep.tech', 'spacingActionEmpty'),
               labelPosition: 'right' as const,
               position: (() => {
                 const hp = hotspots.find(h => h.id === confirmedHotspot)!;
@@ -180,16 +138,16 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
       <Modal
         isOpen={showSpacingInput}
         onClose={() => setShowSpacingInput(false)}
-        title="布置监测间距"
+        title={getUiLabel('prep.tech', 'spacingModalTitle')}
       >
         <div className="space-y-6">
-          <p className="text-xs leading-relaxed opacity-80">请参考项目资料，填写测点间距。</p>
+          <p className="text-xs leading-relaxed opacity-80">{spacingQuestion?.prompt}</p>
           <TechnicalInput 
-            label="测点间距" 
+            label={getUiLabel('prep.tech', 'spacingInputLabel')}
             value={spacing} 
             onChange={(val) => setSpacing(val.replace(/[^\d]/g, '').slice(0, 2))} 
             unit="M"
-            placeholder="请输入整数"
+            placeholder={getUiLabel('prep.tech', 'spacingInputPlaceholder')}
           />
           <div className="grid grid-cols-2 gap-3">
             <Button onClick={handleConfirmSpacing} className="w-full">确认</Button>
@@ -202,7 +160,7 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
       <Modal 
         isOpen={showHotspotModal} 
         onClose={handleCloseHotspotModal} 
-        title={`${currentHotspotData?.id} — ${currentHotspotData?.name}`}
+        title={currentHotspotData?.name}
       >
         <div className="space-y-6">
           <div className="border-b border-industrial-fg pb-4">
