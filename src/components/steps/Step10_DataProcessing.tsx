@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button, Modal } from '../Common';
 import { cn } from '../../lib/utils';
 import { motion } from 'motion/react';
-import { Link, Unlink, Battery, Zap, CheckCircle2, AlertTriangle, Loader2, Monitor } from 'lucide-react';
+import { Link, Unlink, Battery, Zap, AlertTriangle, Loader2, Monitor } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { CUM_DISP, PERIOD_DATES as REAL_DATES, DEPTHS } from '../../data/monitoringData';
@@ -50,14 +50,19 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const [connecting, setConnecting] = useState(false);
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedHole, setSelectedHole] = useState('');
+  const [dataImported, setDataImported] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const allData = useRef(buildAllData());
   const [exported, setExported] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showImportConfirmModal, setShowImportConfirmModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const [analyzed, setAnalyzed] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [showAnalyzeConfirmModal, setShowAnalyzeConfirmModal] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [cumulativeDisp, setCumulativeDisp] = useState<Record<number, number | null>>({});
   const [userFills, setUserFills] = useState<Record<number, string>>({});
 
@@ -88,6 +93,8 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const handleAreaChange = (val: string) => {
     setSelectedArea(val);
     setSelectedHole('');
+    setDataImported(false);
+    setImporting(false);
     setExported(false);
     setAnalyzed(false);
     setCumulativeDisp({});
@@ -97,6 +104,8 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
 
   const handleHoleChange = (val: string) => {
     setSelectedHole(val);
+    setDataImported(false);
+    setImporting(false);
     setExported(false);
     setAnalyzed(false);
     setCumulativeDisp({});
@@ -104,8 +113,32 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     if (val) { logOp('selectHole', val); trackFirst('selectHole'); }
   };
 
+  const runImport = () => {
+    setDataImported(false);
+    setExported(false);
+    setAnalyzed(false);
+    setCumulativeDisp({});
+    setUserFills({});
+    hasSubmittedRef.current = false;
+    setImporting(true);
+    logOp('import');
+    setTimeout(() => {
+      setImporting(false);
+      setDataImported(true);
+    }, 800);
+  };
+
+  const handleImport = () => {
+    if (!selectedArea || !selectedHole || importing) return;
+    if (dataImported) {
+      setShowImportConfirmModal(true);
+      return;
+    }
+    runImport();
+  };
+
   const handleExport = () => {
-    if (exporting) return;
+    if (!canExport || exporting) return;
     // 允许重复导出：重置提交状态以便后续 useEffect 重新触发 handleSubmit
     hasSubmittedRef.current = false;
     setExported(false);
@@ -114,8 +147,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     setTimeout(() => { setExporting(false); setExported(true); setShowExportModal(true); }, 1500);
   };
 
-  const handleAnalyze = () => {
-    if (analyzing) return;
+  const runAnalyze = () => {
     // 允许重复点击：清空填写内容 + 重置导出/提交状态
     setUserFills({});
     setExported(false);
@@ -135,14 +167,25 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       setCumulativeDisp(disp);
       setAnalyzing(false);
       setAnalyzed(true);
+      setShowAnalysisModal(true);
     }, 2000);
   };
 
-  const dataLoaded = selectedArea !== '' && selectedHole !== '';
+  const handleAnalyze = () => {
+    if (!dataImported || analyzing) return;
+    if (Object.keys(userFills).some(depth => userFills[Number(depth)]?.trim() !== '')) {
+      setShowAnalyzeConfirmModal(true);
+      return;
+    }
+    runAnalyze();
+  };
+
+  const canImport = selectedArea !== '' && selectedHole !== '';
+  const dataLoaded = dataImported;
   const latestRows = dataLoaded ? allData.current[PERIODS - 1].rows : [];
   const holeCount = selectedArea ? (AREA_HOLES[selectedArea] || 0) : 0;
   const holeOptions = Array.from({ length: holeCount }, (_, i) => i + 1);
-  const totalRecords = selectedHole ? DEPTH_POINTS : 0;
+  const totalRecords = dataLoaded ? DEPTH_POINTS : 0;
   const missingFilled = MISSING_DEPTHS.every(d => userFills[d] !== undefined && userFills[d].trim() !== '' && !isNaN(Number(userFills[d])));
   const canExport = analyzed && missingFilled;
 
@@ -278,20 +321,23 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
               <label className="text-[9px] font-bold uppercase opacity-50 mb-0.5">记录总条数</label>
               <div className="border border-industrial-fg/30 px-2 text-xs bg-industrial-bg/10 font-mono h-7 flex items-center min-w-[48px]">{totalRecords || '--'}</div>
             </div>
+            <Button
+              onClick={handleImport}
+              disabled={!canImport || importing}
+              className="text-[10px] h-7 px-3"
+            >
+              {importing ? (
+                <span className="flex items-center"><Loader2 size={12} className="animate-spin mr-1" />导入中...</span>
+              ) : '导入'}
+            </Button>
           </div>
 
           {/* Data table area — 始终显示，无数据时呈现空表 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-widest opacity-40">
-                {dataLoaded ? ('第' + PERIODS + '期数据 · ' + PERIOD_DATES[PERIODS - 1] + ' · 共 ' + DEPTH_POINTS + ' 行') : '请先选择测区 + 孔号'}
+                {dataLoaded ? ('第' + PERIODS + '期数据 · ' + PERIOD_DATES[PERIODS - 1] + ' · 共 ' + DEPTH_POINTS + ' 行') : '待导入数据'}
               </div>
-              {analyzed && (
-                <div className="flex items-center gap-2 text-[10px]">
-                  <AlertTriangle size={12} className="text-amber-500" />
-                  <span className="text-amber-700 font-bold">{'有' + MISSING_DEPTHS.length + '处深度点累计位移计算遗漏，请手动补充'}</span>
-                </div>
-              )}
             </div>
             <div className="max-h-[400px] overflow-y-auto border border-industrial-fg/20">
             <table className="w-full text-[10px] font-mono border-collapse">
@@ -300,7 +346,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 <th className="p-1.5 text-left">正测(mm)</th>
                 <th className="p-1.5 text-left">反测(mm)</th>
                 <th className="p-1.5 text-left">校验和(mm)</th>
-                {analyzed && <th className="p-1.5 text-left">累计位移(mm)</th>}
+                <th className="p-1.5 text-left">累计位移(mm)</th>
               </tr></thead>
               <tbody>
                 {dataLoaded ? latestRows.map(r => {
@@ -311,9 +357,9 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                       <td className={cn('p-1.5', analyzed && isMissing ? 'font-bold text-blue-700' : '')}>{r.forward.toFixed(2)}</td>
                       <td className={cn('p-1.5', analyzed && isMissing ? 'font-bold text-blue-700' : '')}>{r.reverse.toFixed(2)}</td>
                       <td className="p-1.5">{r.checksum.toFixed(2)}</td>
-                      {analyzed && (
-                        <td className="p-1.5">
-                          {isMissing ? (
+                      <td className="p-1.5">
+                        {analyzed ? (
+                          isMissing ? (
                             <input
                               type="text"
                               placeholder="请填写"
@@ -323,13 +369,15 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                             />
                           ) : (
                             <span>{cumulativeDisp[r.depth]?.toFixed(2) ?? '--'}</span>
-                          )}
-                        </td>
-                      )}
+                          )
+                        ) : (
+                          <span className="opacity-40">--</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 }) : (
-                  <tr><td colSpan={analyzed ? 5 : 4} className="p-4 text-center opacity-50">请先选择测区和孔号加载数据</td></tr>
+                  <tr><td colSpan={5} className="p-4 text-center opacity-50">暂无数据</td></tr>
                 )}
               </tbody>
             </table>
@@ -338,22 +386,79 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
               <Button onClick={handleAnalyze} disabled={!dataLoaded || analyzing} className="text-[10px] px-6">
                 {analyzing ? (
                   <span className="flex items-center"><Loader2 size={12} className="animate-spin mr-1" />计算中...</span>
-                ) : analyzed ? (
-                  <span className="flex items-center"><CheckCircle2 size={12} className="mr-1" />重新分析</span>
                 ) : '分析'}
               </Button>
-              <Button variant="secondary" onClick={handleExport} disabled={!canExport || exporting} className="text-[10px] px-6">
-                {exporting ? (
-                  <span className="flex items-center"><Loader2 size={12} className="animate-spin mr-1" />导出中...</span>
-                ) : exported ? (
-                  <span className="flex items-center"><CheckCircle2 size={12} className="mr-1" />重新导出</span>
-                ) : '导出'}
+              <Button
+                onClick={handleExport}
+                disabled={!canExport || exporting}
+                title={!canExport ? '当前不可导出' : undefined}
+                className="text-[10px] px-6"
+              >
+                导出
               </Button>
             </div>
           </div>
         </div>
       </div>
       </WireframePlaceholder>
+
+      <Modal isOpen={showImportConfirmModal} onClose={() => setShowImportConfirmModal(false)} title="确认导入">
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed">
+            已有数据导入，是否重新导入并覆盖已导入数据？
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button
+              onClick={() => {
+                setShowImportConfirmModal(false);
+                runImport();
+              }}
+              className="px-8"
+            >
+              确认导入
+            </Button>
+            <Button variant="secondary" onClick={() => setShowImportConfirmModal(false)} className="px-8">
+              取消
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showAnalyzeConfirmModal} onClose={() => setShowAnalyzeConfirmModal(false)} title="确认分析">
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed">
+            重新分析将清空已补充的数据，是否继续？
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button
+              onClick={() => {
+                setShowAnalyzeConfirmModal(false);
+                runAnalyze();
+              }}
+              className="px-8"
+            >
+              确认分析
+            </Button>
+            <Button variant="secondary" onClick={() => setShowAnalyzeConfirmModal(false)} className="px-8">
+              取消
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showAnalysisModal} onClose={() => setShowAnalysisModal(false)} title="分析完成">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              {'分析完成，检测到 ' + MISSING_DEPTHS.length + ' 处累计位移数据缺失。'}
+            </p>
+          </div>
+          <div className="flex justify-center pt-2">
+            <Button onClick={() => setShowAnalysisModal(false)} className="px-8">知道了</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* 导出成功模态框（模式 A） */}
       <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} title="导出成功">

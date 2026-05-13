@@ -31,6 +31,7 @@ export const Button: React.FC<ButtonProps> = ({ variant = 'primary', className, 
     <button 
       className={cn(
         variant === 'primary' ? 'brutalist-button-primary' : 'brutalist-button-secondary',
+        'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0',
         className
       )}
       {...props}

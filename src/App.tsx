@@ -34,7 +34,7 @@ function AppInner() {
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
-  const [devVisible, setDevVisible] = useState(false);
+  const [devVisible, setDevVisible] = useState(true);
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [showFrameworkGuide, setShowFrameworkGuide] = useState(false);
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
