@@ -1,4 +1,4 @@
-stepId,questionId,label,prompt,type,maxScore,correctAnswer,correctRangeMin,correctRangeMax,unit,analysis
+﻿stepId,questionId,label,prompt,type,maxScore,correctAnswer,correctRangeMin,correctRangeMax,unit,analysis
 prep.tech,prep.tech.location,点位设计,请选择测斜管的布设位置,singleChoice,1,CX1,,,,冠梁位于基坑围护结构顶部，沿基坑周圈设置，能够反映围护结构顶部及支护体系的整体变形控制要求，是本题测斜管点位设计中更符合监测目标的位置。基坑开挖区、周边建筑和周边道路虽然都是现场重要对象，但不是本题测斜管布设的最佳目标构件。
 prep.tech,prep.tech.spacing,间距设计,请参考项目资料，填写测点间距。,fillRange,2,,20,60,m,测点间距应结合规范要求、基坑规模和现场监测需求控制在合理范围内。本题要求间距在20m至60m闭区间内，输入20m或60m均满足要求；低于20m或高于60m均不符合本题的间距设计要求。
 prep.material,prep.material.area,取料位置,请选择正确的取料区域,singleChoice,1,materialWarehouse,,,,测斜管应在现场材料库房内领取。库房为封闭式临时存放空间，具备通风、防潮、材料台账和领料登记等条件，更符合测斜管材料存放与领用管理要求。基坑坡顶平台、钢筋笼绑扎区和露天材料暂存区均不适合作为规范的取料位置。
@@ -50,3 +50,18 @@ acq.instrument,acq.instrument.reverse18,18.0m反测值,请输入18.0m反测值�
 acq.instrument,acq.instrument.forward12_5,12.5m正测值,请输入12.5m正测值。,fillValue,1,61,,,mm,12.5m正测值应为61，用于判断异常点补测是否完整。
 acq.instrument,acq.instrument.reverse12_5,12.5m反测值,请输入12.5m反测值。,fillValue,1,-59,,,mm,12.5m反测补测后应恢复为-59。
 acq.instrument,acq.instrument.cleanupOrder,收工顺序,请选择正确的收工顺序。,singleChoice,1,powerOffBeforeDisconnect,,,,收工时应先关闭电源，再拔除线材，避免带电插拔和数据中断风险。
+data.processing,data.processing.connection,导入前连接状态,点击导入时读数仪是否已连接？,singleChoice,1,connected,,,,数据导入前应先连接读数仪并确认设备状态。本项按点击导入时的连接状态判分，而不是按最早操作顺序判分。
+data.processing,data.processing.area,测区值,请输入导入数据时选择的测区编号。,fillValue,1,03,,,,本次数据导入对象为03区，应在导入时选择03区。
+data.processing,data.processing.hole,孔号值,请输入导入数据时选择的孔号。,fillValue,1,06,,,,本次数据导入对象为03区06孔，应在导入时选择06孔。
+data.processing,data.processing.cumDisp10,本次位移量补全-10.0m,请输入第6期10.0m深度的本次位移量。,fillValue,1,21.00,,,mm,分析导入的第6期本期数据后，10.0m深度处本次位移量数据缺失。根据第10步CSV数据表中同一测孔本期位移数据和相邻深度位移趋势，应补全该深度本次位移量为21.00mm。
+data.processing,data.processing.cumDisp14,本次位移量补全-14.0m,请输入第6期14.0m深度的本次位移量。,fillValue,1,9.62,,,mm,分析导入的第6期本期数据后，14.0m深度处本次位移量数据缺失。根据第10步CSV数据表中同一测孔本期位移数据和相邻深度位移趋势，应补全该深度本次位移量为9.62mm。
+data.report,data.report.hole,孔号,请输入本期日报表对应的监测孔号。,fillValue,1,CX-06,,,,本期日报表对应03区06孔，标准孔号为CX-06；填写时包含06的孔号会在提交前规范为CX-06。
+data.report,data.report.period,监测期次,请输入本期日报表的监测期次。,fillValue,1,8,,,,本期日报表为第8期监测日报表，期次应填写8。
+data.report,data.report.instrument,仪器型号,请选择本期监测使用的仪器型号。,fillValue,1,CX-03E,,,,本期深层水平位移数据来自CX-03E型滑动式测斜仪。
+data.report,data.report.change2,2.0m 本次变化量,请输入第8期2.0m深度的本次变化量。,fillValue,2,0.35,,,mm,第8期2.0m累计位移为2.20mm，上期累计位移为1.85mm，本次变化量=2.20-1.85=0.35mm。
+data.report,data.report.change10,10.0m 本次变化量,请输入第8期10.0m深度的本次变化量。,fillValue,2,8.80,,,mm,第8期10.0m累计位移为36.00mm，上期累计位移为27.20mm，本次变化量=36.00-27.20=8.80mm。
+data.report,data.report.rate10,10.0m 变化速率,请输入第8期10.0m深度的变化速率。,fillValue,2,1.26,,,mm/d,第8期与第7期间隔7天，10.0m本次变化量为8.80mm，变化速率=8.80/7=1.26mm/d。
+data.report,data.report.rate18,18.0m 变化速率,请输入第8期18.0m深度的变化速率。,fillValue,2,0.02,,,mm/d,第8期18.0m累计位移为1.10mm，上期累计位移为0.95mm，本次变化量=0.15mm，变化速率=0.15/7=0.02mm/d。
+data.report,data.report.shapeReason,曲线形态成因,请选择本期深度-位移曲线的主要形态成因。,singleChoice,3,shapeExcavationUnloading,,,,本期曲线中部位移明显增大，符合开挖卸荷导致中部土压力释放，墙体向坑内鼓出的变形特征。
+data.report,data.report.warningLevel,预警等级,请选择本期监测结果对应的预警等级。,singleChoice,2,yellowWarning,,,,本期10.0m累计位移达到36.00mm，超过控制值50mm的70%黄色预警阈值35mm，因此应判定为黄色预警。
+

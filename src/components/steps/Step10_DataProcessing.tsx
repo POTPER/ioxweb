@@ -1,48 +1,49 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Button, Modal } from '../Common';
+import { Button, Modal, TechnicalInput } from '../Common';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { cn } from '../../lib/utils';
-import { motion } from 'motion/react';
 import { Link, Unlink, Battery, Zap, AlertTriangle, Loader2, Monitor } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
-import { CUM_DISP, PERIOD_DATES as REAL_DATES, DEPTHS } from '../../data/monitoringData';
+import { dataProcessingRows } from '../../data/trainingContent';
+import { dataProcessingScoringConfig } from '../../data/scoringConfig';
+import { calculateStepScore } from '../../lib/scoring';
 
-// --- Data Generation ---
 const AREA_HOLES: Record<string, number> = { '01': 5, '02': 6, '03': 8 };
-const PERIODS = 8;
-const DEPTH_POINTS = 41;
-const PERIOD_DATES = REAL_DATES;
 
 interface DepthRow {
+  period: number;
+  date: string;
   depth: number;
   forward: number;
   reverse: number;
   checksum: number;
+  displacement: number;
+  isMissing: boolean;
 }
 
-const MISSING_DEPTHS = [10.0, 14.0];
+type ImportSnapshot = {
+  connected: boolean;
+  area: string;
+  hole: string;
+};
 
-function generatePeriodData(period: number): DepthRow[] {
-  const rows: DepthRow[] = [];
-  for (let i = 0; i <= 40; i++) {
-    const d = Number((i * 0.5).toFixed(1));
-    const base = Math.sin((d / 20) * Math.PI) * (30 + period * 4);
-    const noise = ((d * 7 + period * 13) % 5 - 2) * 0.3;
-    const fwd = Number((base + noise).toFixed(2));
-    const rev = Number((-base + noise * 0.5 + ((d * 3 + period * 7) % 3 - 1) * 0.08).toFixed(2));
-    const chk = Number((fwd + rev).toFixed(2));
-    rows.push({ depth: d, forward: fwd, reverse: rev, checksum: chk });
-  }
-  return rows;
-}
+const processingRows: DepthRow[] = dataProcessingRows.map(row => ({
+  period: Number(row.period),
+  date: row.date,
+  depth: Number(row.depth),
+  forward: Number(row.forward),
+  reverse: Number(row.reverse),
+  checksum: Number(row.checksum),
+  displacement: Number(row.displacement),
+  isMissing: row.isMissing === 'true',
+}));
 
-function buildAllData() {
-  const periods: { period: number; date: string; rows: DepthRow[] }[] = [];
-  for (let p = 1; p <= PERIODS; p++) {
-    periods.push({ period: p, date: PERIOD_DATES[p - 1], rows: generatePeriodData(p) });
-  }
-  return periods;
-}
+const DATA_PERIOD = processingRows[0]?.period ?? 6;
+const DATA_DATE = processingRows[0]?.date ?? '2026-03-24';
+const DEPTH_POINTS = processingRows.length;
+const MISSING_ROWS = processingRows.filter(row => row.isMissing);
+const MISSING_DEPTHS = MISSING_ROWS.map(row => row.depth);
 
 export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
@@ -53,7 +54,6 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const [dataImported, setDataImported] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const allData = useRef(buildAllData());
   const [exported, setExported] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showImportConfirmModal, setShowImportConfirmModal] = useState(false);
@@ -65,6 +65,9 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [cumulativeDisp, setCumulativeDisp] = useState<Record<number, number | null>>({});
   const [userFills, setUserFills] = useState<Record<number, string>>({});
+  const [activeFillDepth, setActiveFillDepth] = useState<number | null>(null);
+  const [pendingFillValue, setPendingFillValue] = useState('');
+  const [importSnapshot, setImportSnapshot] = useState<ImportSnapshot | null>(null);
 
 
   const opLog = useRef<{ action: string; value?: string; timestamp: string }[]>([]);
@@ -72,16 +75,10 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     opLog.current.push({ action, value, timestamp: new Date().toISOString() });
   }, []);
 
-  const firstActions = useRef<string[]>([]);
-  const trackFirst = useCallback((action: string) => {
-    if (!firstActions.current.includes(action)) firstActions.current.push(action);
-  }, []);
-
   const handleConnect = () => {
     if (connecting) return;
     setConnecting(true);
     logOp('connect');
-    trackFirst('connect');
     setTimeout(() => { setConnecting(false); setIsConnected(true); }, 1500);
   };
 
@@ -93,24 +90,12 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const handleAreaChange = (val: string) => {
     setSelectedArea(val);
     setSelectedHole('');
-    setDataImported(false);
-    setImporting(false);
-    setExported(false);
-    setAnalyzed(false);
-    setCumulativeDisp({});
-    setUserFills({});
-    if (val) { logOp('selectArea', val); trackFirst('selectArea'); }
+    if (val) { logOp('selectArea', val); }
   };
 
   const handleHoleChange = (val: string) => {
     setSelectedHole(val);
-    setDataImported(false);
-    setImporting(false);
-    setExported(false);
-    setAnalyzed(false);
-    setCumulativeDisp({});
-    setUserFills({});
-    if (val) { logOp('selectHole', val); trackFirst('selectHole'); }
+    if (val) { logOp('selectHole', val); }
   };
 
   const runImport = () => {
@@ -121,7 +106,13 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     setUserFills({});
     hasSubmittedRef.current = false;
     setImporting(true);
-    logOp('import');
+    const snapshot: ImportSnapshot = {
+      connected: isConnected,
+      area: selectedArea,
+      hole: selectedHole.padStart(2, '0'),
+    };
+    setImportSnapshot(snapshot);
+    logOp('import', JSON.stringify(snapshot));
     setTimeout(() => {
       setImporting(false);
       setDataImported(true);
@@ -155,14 +146,9 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     setAnalyzing(true);
     logOp('analyze');
     setTimeout(() => {
-      const realP8 = CUM_DISP[PERIODS - 1];
       const disp: Record<number, number | null> = {};
-      DEPTHS.forEach((d, i) => {
-        if (MISSING_DEPTHS.includes(d)) {
-          disp[d] = null;
-        } else {
-          disp[d] = realP8[i];
-        }
+      processingRows.forEach(row => {
+        disp[row.depth] = row.isMissing ? null : row.displacement;
       });
       setCumulativeDisp(disp);
       setAnalyzing(false);
@@ -180,9 +166,34 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     runAnalyze();
   };
 
+  const openFillModal = (depth: number) => {
+    setActiveFillDepth(depth);
+    setPendingFillValue(userFills[depth] || '');
+  };
+
+  const closeFillModal = () => {
+    setActiveFillDepth(null);
+    setPendingFillValue('');
+  };
+
+  const handlePendingFillChange = (value: string) => {
+    const normalized = value
+      .replace(/[^\d.]/g, '')
+      .replace(/(\..*)\./g, '$1');
+    setPendingFillValue(normalized);
+  };
+
+  const confirmFillValue = () => {
+    if (activeFillDepth === null) return;
+    const trimmed = pendingFillValue.trim();
+    if (trimmed === '' || Number.isNaN(Number(trimmed))) return;
+    setUserFills(prev => ({ ...prev, [activeFillDepth]: Number(trimmed).toFixed(2) }));
+    closeFillModal();
+  };
+
   const canImport = selectedArea !== '' && selectedHole !== '';
   const dataLoaded = dataImported;
-  const latestRows = dataLoaded ? allData.current[PERIODS - 1].rows : [];
+  const latestRows = dataLoaded ? processingRows : [];
   const holeCount = selectedArea ? (AREA_HOLES[selectedArea] || 0) : 0;
   const holeOptions = Array.from({ length: holeCount }, (_, i) => i + 1);
   const totalRecords = dataLoaded ? DEPTH_POINTS : 0;
@@ -200,61 +211,69 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   }, [exported]);
 
   const handleSubmit = () => {
-    const fa = firstActions.current;
-    const connectIdx = fa.indexOf('connect');
-    const areaIdx = fa.indexOf('selectArea');
-    const holeIdx = fa.indexOf('selectHole');
-
-    const connectFirst = connectIdx !== -1 && (areaIdx === -1 || connectIdx < areaIdx) && (holeIdx === -1 || connectIdx < holeIdx);
-    const score311 = connectFirst ? 1 : 0;
-
-    const areaBeforeHole = areaIdx !== -1 && (holeIdx === -1 || areaIdx < holeIdx);
-    const score312 = areaBeforeHole ? 1 : 0;
+    const snapshot = importSnapshot ?? {
+      connected: isConnected,
+      area: selectedArea,
+      hole: selectedHole.padStart(2, '0'),
+    };
 
     let correctCount = 0;
-    const realP8 = CUM_DISP[PERIODS - 1];
-    MISSING_DEPTHS.forEach(d => {
-      const idx = DEPTHS.indexOf(d);
-      if (idx !== -1) {
-        const correct = realP8[idx];
-        const userVal = Number(Number(userFills[d]).toFixed(2));
-        if (Math.abs(userVal - correct) <= 0.05) correctCount++;
-      }
+    MISSING_ROWS.forEach(row => {
+      const userVal = Number(Number(userFills[row.depth]).toFixed(2));
+      if (Math.abs(userVal - row.displacement) <= 0.05) correctCount++;
     });
     const score313 = correctCount;
-    const totalScore = score311 + score312 + score313;
+    const scoreResult = calculateStepScore(dataProcessingScoringConfig, [
+      {
+        questionId: 'data.processing.connection',
+        answer: snapshot.connected ? 'connected' : 'notConnected',
+      },
+      {
+        questionId: 'data.processing.area',
+        answer: snapshot.area,
+      },
+      {
+        questionId: 'data.processing.hole',
+        answer: snapshot.hole,
+      },
+      {
+        questionId: 'data.processing.cumDisp10',
+        answer: userFills[10.0],
+      },
+      {
+        questionId: 'data.processing.cumDisp14',
+        answer: userFills[14.0],
+      },
+    ]);
 
     onNext({
-      stepId: 'step10',
-      stepName: '数据导入与预处理',
-      submittedAt: new Date().toISOString(),
+      ...scoreResult,
+      legacyStepId: 'step10',
       operationLog: opLog.current,
+      importSnapshot: snapshot,
       scoring: {
-        '3-1-1': { label: '操作顺序：连接优先', connectBeforeSelect: connectFirst, score: score311, maxScore: 1 },
-        '3-1-2': { label: '操作顺序：先选区再选孔', areaBeforeHole, score: score312, maxScore: 1 },
+        connection: { label: '导入前连接状态', connectedAtImport: snapshot.connected, score: snapshot.connected ? 1 : 0, maxScore: 1 },
+        area: { label: '测区值', userAnswer: snapshot.area, correctAnswer: '03', score: snapshot.area === '03' ? 1 : 0, maxScore: 1 },
+        hole: { label: '孔号值', userAnswer: snapshot.hole, correctAnswer: '06', score: snapshot.hole === '06' ? 1 : 0, maxScore: 1 },
         '3-1-3': {
-          label: '累计位移验算',
-          items: MISSING_DEPTHS.map(d => {
-            const idx = DEPTHS.indexOf(d);
-            const correct = realP8[idx];
-            return { depth: d + 'm', userAnswer: Number(userFills[d]), correctAnswer: correct, tolerance: 0.05, correct: Math.abs(Number(userFills[d]) - correct) <= 0.05 };
+          label: '本次位移量补全',
+          items: MISSING_ROWS.map(row => {
+            return { depth: row.depth + 'm', userAnswer: Number(userFills[row.depth]), correctAnswer: row.displacement, tolerance: 0.05, correct: Math.abs(Number(userFills[row.depth]) - row.displacement) <= 0.05 };
           }),
           score: score313, maxScore: 2
         }
       },
-      totalScore,
-      maxScore: 4,
       exportedData: {
-        period: PERIODS,
+        period: DATA_PERIOD,
         records: DEPTH_POINTS,
-        displacementFilled: Object.fromEntries(MISSING_DEPTHS.map(d => [d + 'm', Number(userFills[d])]))
+        displacementFilled: Object.fromEntries(MISSING_ROWS.map(row => [row.depth + 'm', Number(userFills[row.depth])]))
       },
       supplementedData: {
         note: '系统后台自动补全其余期次数据，供步骤3使用',
-        allPeriods: Array.from({ length: PERIODS }, (_, i) => i + 1),
-        totalRecords: PERIODS * DEPTH_POINTS,
+        allPeriods: [DATA_PERIOD],
+        totalRecords: DEPTH_POINTS,
       },
-      allPeriodsData: allData.current,
+      allPeriodsData: [{ period: DATA_PERIOD, date: DATA_DATE, rows: processingRows }],
     });
   };
 
@@ -336,7 +355,9 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-widest opacity-40">
-                {dataLoaded ? ('第' + PERIODS + '期数据 · ' + PERIOD_DATES[PERIODS - 1] + ' · 共 ' + DEPTH_POINTS + ' 行') : '待导入数据'}
+                {dataLoaded && importSnapshot ? (
+                  '已导入：第' + DATA_PERIOD + '期数据 · ' + DATA_DATE + ' · ' + importSnapshot.area + '区' + importSnapshot.hole + '孔 · 共 ' + DEPTH_POINTS + ' 行'
+                ) : '待导入数据'}
               </div>
             </div>
             <div className="max-h-[400px] overflow-y-auto border border-industrial-fg/20">
@@ -346,7 +367,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 <th className="p-1.5 text-left">正测(mm)</th>
                 <th className="p-1.5 text-left">反测(mm)</th>
                 <th className="p-1.5 text-left">校验和(mm)</th>
-                <th className="p-1.5 text-left">累计位移(mm)</th>
+                <th className="p-1.5 text-left">本次位移量(mm)</th>
               </tr></thead>
               <tbody>
                 {dataLoaded ? latestRows.map(r => {
@@ -360,12 +381,12 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                       <td className="p-1.5">
                         {analyzed ? (
                           isMissing ? (
-                            <input
-                              type="text"
-                              placeholder="请填写"
-                              className="border-2 border-amber-400 bg-amber-50 px-2 py-0.5 w-24 text-center font-bold focus:outline-none focus:border-industrial-fg"
-                              value={userFills[r.depth] || ''}
-                              onChange={e => setUserFills(prev => ({ ...prev, [r.depth]: e.target.value }))}
+                            <TrainingQuestionButton
+                              absolute={false}
+                              completed={Boolean(userFills[r.depth]?.trim())}
+                              label={userFills[r.depth]?.trim() || '请填写'}
+                              className="inline-flex"
+                              onClick={() => openFillModal(r.depth)}
                             />
                           ) : (
                             <span>{cumulativeDisp[r.depth]?.toFixed(2) ?? '--'}</span>
@@ -401,6 +422,35 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
         </div>
       </div>
       </WireframePlaceholder>
+
+      <Modal isOpen={activeFillDepth !== null} onClose={closeFillModal} title="填写本次位移量">
+        <div className="space-y-6">
+          <p className="text-xs leading-relaxed opacity-80">
+            {activeFillDepth !== null
+              ? `请输入第${DATA_PERIOD}期 ${activeFillDepth.toFixed(1)}m 深度的本次位移量。`
+              : '请输入本次位移量。'}
+          </p>
+          <TechnicalInput
+            label="本次位移量"
+            value={pendingFillValue}
+            onChange={handlePendingFillChange}
+            unit="MM"
+            placeholder="请输入数值"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={confirmFillValue}
+              disabled={pendingFillValue.trim() === '' || Number.isNaN(Number(pendingFillValue))}
+              className="w-full"
+            >
+              确认
+            </Button>
+            <Button variant="secondary" onClick={closeFillModal} className="w-full">
+              取消
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={showImportConfirmModal} onClose={() => setShowImportConfirmModal(false)} title="确认导入">
         <div className="space-y-4">
@@ -451,7 +501,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
           <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
             <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">
-              {'分析完成，检测到 ' + MISSING_DEPTHS.length + ' 处累计位移数据缺失。'}
+              {'分析完成，检测到 ' + MISSING_DEPTHS.length + ' 处本次位移量数据缺失。'}
             </p>
           </div>
           <div className="flex justify-center pt-2">
@@ -464,7 +514,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} title="导出成功">
         <div className="space-y-4">
           <p className="text-xs leading-relaxed">
-            {'数据导出成功，共 ' + DEPTH_POINTS + ' 条记录（第' + PERIODS + '期）。系统后台将自动补全其余期次数据，供后续分析使用。已自动提交评分—点击侧栏「监测日报表填写」进入下一步。'}
+            {'数据导出成功，共 ' + DEPTH_POINTS + ' 条记录（第' + DATA_PERIOD + '期）。系统后台将自动补全其余期次数据，供后续分析使用。已自动提交评分—点击侧栏「监测日报表填写」进入下一步。'}
           </p>
           <div className="flex justify-center pt-2">
             <Button onClick={() => setShowExportModal(false)} className="px-8">知道了</Button>

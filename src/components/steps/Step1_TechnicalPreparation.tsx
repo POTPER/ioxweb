@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TechnicalCard, Button, TechnicalInput, Modal } from '../Common';
+import { TechnicalCard, Button, Modal } from '../Common';
 import { cn } from '../../lib/utils';
 import { CheckCircle2 } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
@@ -163,13 +163,18 @@ export const TechnicalPreparation: React.FC<{ onNext: (data: any) => void }> = (
       >
         <div className="space-y-6">
           <p className="text-xs leading-relaxed opacity-80">{spacingQuestion?.prompt}</p>
-          <TechnicalInput 
-            label={getUiLabel('prep.tech', 'spacingInputLabel')}
-            value={spacing} 
-            onChange={(val) => setSpacing(val.replace(/[^\d]/g, '').slice(0, 2))} 
-            unit="M"
-            placeholder={getUiLabel('prep.tech', 'spacingInputPlaceholder')}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={spacing}
+              onChange={(event) => setSpacing(event.target.value.replace(/[^\d]/g, '').slice(0, 2))}
+              placeholder={getUiLabel('prep.tech', 'spacingInputPlaceholder')}
+              className="w-full border border-industrial-fg bg-white p-2 pr-12 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-industrial-info"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] opacity-50 uppercase">
+              M
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Button onClick={handleConfirmSpacing} className="w-full">确认</Button>
             <Button variant="secondary" onClick={() => setShowSpacingInput(false)} className="w-full">取消</Button>

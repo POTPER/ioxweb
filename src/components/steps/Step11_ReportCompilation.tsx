@@ -1,22 +1,51 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import { motion } from 'motion/react';
 import { CheckCircle2, LineChart } from 'lucide-react';
 import { Button, Modal } from '../Common';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
-import { getPeriodRows, PERIOD_INTERVALS } from '../../data/monitoringData';
+import { reportCompilationRows } from '../../data/trainingContent';
+import { dataReportScoringConfig } from '../../data/scoringConfig';
+import { calculateStepScore } from '../../lib/scoring';
 
-// ===== Preset data from 监测数据.md =====
-const INTERVAL_DAYS = PERIOD_INTERVALS[7]; // 第8期间隔 = 7天
+type ReportRow = {
+  period: number;
+  date: string;
+  previousPeriod: number;
+  previousDate: string;
+  intervalDays: number;
+  depth: number;
+  cumDisp: number;
+  prevCumDisp: number;
+  change: number;
+  rate: number;
+  isChangeMissing: boolean;
+  isRateMissing: boolean;
+};
 
-function getReportData() {
-  return getPeriodRows(8);
-}
+const reportRows: ReportRow[] = reportCompilationRows.map(row => ({
+  period: Number(row.period),
+  date: row.date,
+  previousPeriod: Number(row.previousPeriod),
+  previousDate: row.previousDate,
+  intervalDays: Number(row.intervalDays),
+  depth: Number(row.depth),
+  cumDisp: Number(row.cumDisp),
+  prevCumDisp: Number(row.prevCumDisp),
+  change: Number(row.change),
+  rate: Number(row.rate),
+  isChangeMissing: row.isChangeMissing === 'true',
+  isRateMissing: row.isRateMissing === 'true',
+}));
 
-function getPrevReportData() {
-  return getPeriodRows(7);
-}
+const CURRENT_PERIOD = 8;
+const PREVIOUS_PERIOD = 7;
+const reportData = reportRows.filter(row => row.period === CURRENT_PERIOD);
+const prevData = reportRows.filter(row => row.period === PREVIOUS_PERIOD);
+const currentMeta = reportData[0];
+const INTERVAL_DAYS = currentMeta?.intervalDays ?? 7;
 
 // Fields student must fill: { depth, field } combos
 // 2.0m -> change (本次变化量)
@@ -30,13 +59,18 @@ const FILL_FIELDS: { depth: number; field: 'change' | 'rate' }[] = [
 ];
 
 const SHAPE_OPTIONS = [
-  '开挖卸荷致中部土压力释放,墙体向坑内鼓出',
-  '支撑刚度不足致顶部位移过大',
-  '桩底嵌固不足致底部踢出',
-  '地下水渗流致整体偏移',
+  { value: 'shapeExcavationUnloading', label: '开挖卸荷致中部土压力释放，墙体向坑内鼓出' },
+  { value: 'topDisplacementDueSupport', label: '支撑刚度不足致顶部位移过大' },
+  { value: 'bottomKickDueBase', label: '坑底嵌固不足致底部踢出' },
+  { value: 'groundwaterSeepageShift', label: '地下水渗流致整体偏移' },
 ];
 
-const WARNING_OPTIONS = ['安全', '黄色预警', '橙色预警', '红色预警'];
+const WARNING_OPTIONS = [
+  { value: 'safe', label: '安全' },
+  { value: 'yellowWarning', label: '黄色预警' },
+  { value: 'orangeWarning', label: '橙色预警' },
+  { value: 'redWarning', label: '红色预警' },
+];
 
 const INSTRUMENT_OPTIONS = [
   { value: 'CX-03E', label: 'CX-03E型滑动式测斜仪' },
@@ -68,9 +102,8 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
   const [pendingShape, setPendingShape] = useState('');
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [pendingWarning, setPendingWarning] = useState('');
-
-  const reportData = useMemo(() => getReportData(), []);
-  const prevData = useMemo(() => getPrevReportData(), []);
+  const [activeFill, setActiveFill] = useState<{ depth: number; field: 'change' | 'rate' } | null>(null);
+  const [pendingFillValue, setPendingFillValue] = useState('');
 
   // Check all required fields filled
   const allFillsDone = FILL_FIELDS.every(f => {
@@ -79,6 +112,37 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
     return v !== undefined && v.trim() !== '' && !isNaN(Number(v));
   });
   const canSubmit = holeNo.trim() !== '' && periodNo.trim() !== '' && instrumentModel !== '' && allFillsDone && shapeReason !== '' && warningLevel !== '';
+  const selectedShapeLabel = SHAPE_OPTIONS.find(option => option.value === shapeReason)?.label || '';
+  const selectedWarningLabel = WARNING_OPTIONS.find(option => option.value === warningLevel)?.label || '';
+  const fillQuestionTitle = (depth: number, field: 'change' | 'rate') => (
+    `${depth.toFixed(1)}m ${field === 'rate' ? '变化速率' : '本次变化量'}`
+  );
+
+  const openFillModal = (depth: number, field: 'change' | 'rate') => {
+    const key = fillKey(depth, field);
+    setActiveFill({ depth, field });
+    setPendingFillValue(fills[key] || '');
+  };
+
+  const closeFillModal = () => {
+    setActiveFill(null);
+    setPendingFillValue('');
+  };
+
+  const handlePendingFillChange = (value: string) => {
+    const normalized = value
+      .replace(/[^\d.]/g, '')
+      .replace(/(\..*)\./g, '$1');
+    setPendingFillValue(normalized);
+  };
+
+  const confirmFillValue = () => {
+    if (!activeFill) return;
+    const trimmed = pendingFillValue.trim();
+    if (trimmed === '' || Number.isNaN(Number(trimmed))) return;
+    setFill(fillKey(activeFill.depth, activeFill.field), Number(trimmed).toFixed(2));
+    closeFillModal();
+  };
 
   // 自动提交：当 canSubmit 变 true 后 600ms 内无进一步修改则提交（防抖）
   const [autoSubmitted, setAutoSubmitted] = useState(false);
@@ -95,53 +159,40 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
   }, [canSubmit, holeNo, periodNo, instrumentModel, instrumentSerial, fills, shapeReason, warningLevel]);
 
   const handleSubmit = () => {
-    // Scoring
-    const s321 = (holeNo.trim() === 'CX-06' || holeNo.trim() === 'CX06' || holeNo.includes('06')) ? 1 : 0;
-    const s322 = (periodNo.trim() === '8') ? 1 : 0;
-    const s326 = instrumentModel === 'CX-03E' ? 1 : 0;
-
-    // 正确答案来自真实数据：
-    // 2.0m 变化量 = 2.20 - 1.85 = 0.35
-    // 10.0m 变化量 = 36.00 - 27.20 = 8.80
-    // 10.0m 速率 = 8.80 / 7 = 1.26
-    // 18.0m 速率 = 0.15 / 7 ≈ 0.02
-
-    // 3-2-12: 本次变化量 2.0m (correct: 0.35, tol ±0.05)
+    const normalizedHoleNo = holeNo.includes('06') ? 'CX-06' : holeNo.trim();
     const u_2_change = Number(fills['2-change'] || 0);
-    const s3212 = Math.abs(u_2_change - 0.35) <= 0.05 ? 2 : 0;
-
-    // 3-2-10: 本次变化量 10.0m (correct: 8.80, tol ±0.05)
     const u_10_change = Number(fills['10-change'] || 0);
-    const s3210 = Math.abs(u_10_change - 8.80) <= 0.05 ? 2 : 0;
-
-    // 3-2-13: 变化速率 10.0m - depends on 3-2-10 with error propagation
     const u_10_rate = Number(fills['10-rate'] || 0);
+    const u_18_rate = Number(fills['18-rate'] || 0);
+
+    const scoreResult = calculateStepScore(dataReportScoringConfig, [
+      { questionId: 'data.report.hole', answer: normalizedHoleNo },
+      { questionId: 'data.report.period', answer: periodNo },
+      { questionId: 'data.report.instrument', answer: instrumentModel },
+      { questionId: 'data.report.change2', answer: fills['2-change'] },
+      { questionId: 'data.report.change10', answer: fills['10-change'] },
+      { questionId: 'data.report.rate10', answer: fills['10-rate'] },
+      { questionId: 'data.report.rate18', answer: fills['18-rate'] },
+      { questionId: 'data.report.shapeReason', answer: shapeReason },
+      { questionId: 'data.report.warningLevel', answer: warningLevel },
+    ]);
+
+    const s321 = scoreResult.answers.find(answer => answer.questionId === 'data.report.hole')?.score ?? 0;
+    const s322 = scoreResult.answers.find(answer => answer.questionId === 'data.report.period')?.score ?? 0;
+    const s326 = scoreResult.answers.find(answer => answer.questionId === 'data.report.instrument')?.score ?? 0;
+    const s3212 = scoreResult.answers.find(answer => answer.questionId === 'data.report.change2')?.score ?? 0;
+    const s3210 = Math.abs(u_10_change - 8.80) <= 0.05 ? 2 : 0;
     const expectedRate10 = Number((u_10_change / INTERVAL_DAYS).toFixed(2));
     let s3213 = 0;
     if (Math.abs(u_10_rate - 1.26) <= 0.01) {
-      s3213 = 2; // fully correct
+      s3213 = 2;
     } else if (s3210 === 0 && Math.abs(u_10_rate - expectedRate10) <= 0.01) {
-      s3213 = 1; // error propagation: process correct but starting value wrong
+      s3213 = 1;
     }
 
-    // 3-2-14: 变化速率 18.0m (correct: 0.02, tol ±0.01)
-    const u_18_rate = Number(fills['18-rate'] || 0);
-    const s3214 = Math.abs(u_18_rate - 0.02) <= 0.01 ? 2 : 0;
-
-    // 3-2-16: 曲线形态成因
-    const s3216 = shapeReason === SHAPE_OPTIONS[0] ? 3 : 0;
-
-    // 3-2-18: 预警等级
-    const s3218 = warningLevel === '黄色预警' ? 2 : 0;
-
-    const totalScore = s321 + s322 + s326 + s3212 + s3210 + s3213 + s3214 + s3216 + s3218;
-
     onNext({
-      stepId: 'step11',
-      stepName: '监测日报表填写',
-      submittedAt: new Date().toISOString(),
-      totalScore,
-      maxScore: 16,
+      ...scoreResult,
+      legacyStepId: 'step11',
       phases: {
         header: {
           answers: [
@@ -160,19 +211,24 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
           monitoringInterval: INTERVAL_DAYS,
           answers: [
             { questionId: '3-2-13', label: '变化速率-10.0m', userAnswer: u_10_rate, correctAnswer: 1.26, tolerance: 0.01, score: s3213, maxScore: 2 },
-            { questionId: '3-2-14', label: '变化速率-18.0m', userAnswer: u_18_rate, correctAnswer: 0.02, tolerance: 0.01, score: s3214, maxScore: 2 },
+            { questionId: '3-2-14', label: '变化速率-18.0m', userAnswer: u_18_rate, correctAnswer: 0.02, tolerance: 0.01, score: scoreResult.answers.find(answer => answer.questionId === 'data.report.rate18')?.score ?? 0, maxScore: 2 },
           ]
         },
         analysis: {
-          briefAnalysis: [{ questionId: '3-2-16', label: '曲线形态成因', userAnswer: shapeReason, correctAnswer: SHAPE_OPTIONS[0], score: s3216, maxScore: 3 }],
-          conclusion: [{ questionId: '3-2-18', label: '预警等级', userAnswer: warningLevel, correctAnswer: '黄色预警', score: s3218, maxScore: 2 }],
+          briefAnalysis: [{ questionId: '3-2-16', label: '曲线形态成因', userAnswer: selectedShapeLabel, correctAnswer: SHAPE_OPTIONS[0].label, score: scoreResult.answers.find(answer => answer.questionId === 'data.report.shapeReason')?.score ?? 0, maxScore: 3 }],
+          conclusion: [{ questionId: '3-2-18', label: '预警等级', userAnswer: selectedWarningLabel, correctAnswer: '黄色预警', score: scoreResult.answers.find(answer => answer.questionId === 'data.report.warningLevel')?.score ?? 0, maxScore: 2 }],
         }
-      }
+      },
+      reportRows: {
+        currentPeriod: CURRENT_PERIOD,
+        previousPeriod: PREVIOUS_PERIOD,
+        intervalDays: INTERVAL_DAYS,
+        records: reportData.length,
+      },
     });
   };
 
   // ===== Render helpers =====
-  const isFillField = (depth: number, field: 'change' | 'rate') => FILL_FIELDS.some(f => f.depth === depth && f.field === field);
   const fillKey = (depth: number, field: string) => depth + '-' + field;
 
   const renderDataTable = (data: typeof reportData, editable: boolean) => (
@@ -189,20 +245,34 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
         <tbody>
           {data.map(r => {
             const isKey = [2.0, 10.0, 18.0].includes(r.depth);
-            const changeFill = editable && isFillField(r.depth, 'change');
-            const rateFill = editable && isFillField(r.depth, 'rate');
+            const changeFill = editable && r.isChangeMissing;
+            const rateFill = editable && r.isRateMissing;
+            const changeKey = fillKey(r.depth, 'change');
+            const rateKey = fillKey(r.depth, 'rate');
             return (
               <tr key={r.depth} className={cn('border-b border-industrial-fg/5', isKey ? 'bg-blue-50/50' : '')}>
                 <td className="p-1.5 border-r border-industrial-fg/10 font-bold">{r.depth.toFixed(1)}</td>
                 <td className="p-1.5 border-r border-industrial-fg/10">{r.cumDisp.toFixed(2)}</td>
                 <td className="p-1.5 border-r border-industrial-fg/10">
                   {changeFill ? (
-                    <input type="text" placeholder="填写" className="border-2 border-amber-400 bg-amber-50 px-1 py-0.5 w-20 text-center font-bold focus:outline-none focus:border-industrial-fg" value={fills[fillKey(r.depth, 'change')] || ''} onChange={e => setFill(fillKey(r.depth, 'change'), e.target.value)} />
+                    <TrainingQuestionButton
+                      absolute={false}
+                      completed={Boolean(fills[changeKey]?.trim())}
+                      label={fillQuestionTitle(r.depth, 'change')}
+                      className="inline-flex"
+                      onClick={() => openFillModal(r.depth, 'change')}
+                    />
                   ) : r.change.toFixed(2)}
                 </td>
                 <td className="p-1.5">
                   {rateFill ? (
-                    <input type="text" placeholder="填写" className="border-2 border-amber-400 bg-amber-50 px-1 py-0.5 w-20 text-center font-bold focus:outline-none focus:border-industrial-fg" value={fills[fillKey(r.depth, 'rate')] || ''} onChange={e => setFill(fillKey(r.depth, 'rate'), e.target.value)} />
+                    <TrainingQuestionButton
+                      absolute={false}
+                      completed={Boolean(fills[rateKey]?.trim())}
+                      label={fillQuestionTitle(r.depth, 'rate')}
+                      className="inline-flex"
+                      onClick={() => openFillModal(r.depth, 'rate')}
+                    />
                   ) : r.rate.toFixed(2)}
                 </td>
               </tr>
@@ -334,25 +404,27 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
               <span className="opacity-50">工况描述:</span> 第二层土方开挖至-12m，第二道支撑已施加
             </div>
             <div className="flex items-center gap-2 text-[10px] font-mono">
-              <span className="opacity-50">曲线形态成因:</span>
-              {shapeReason ? (
-                <button onClick={() => { setPendingShape(shapeReason); setShowShapeModal(true); }} className="flex items-center gap-1">
-                  <span className="w-5 h-5 bg-green-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">[v]</span>
-                  <span className="font-bold text-[10px]">{shapeReason}</span>
-                </button>
-              ) : (
-                <button onClick={() => { setPendingShape(''); setShowShapeModal(true); }} className="w-5 h-5 bg-industrial-fg text-white flex items-center justify-center text-[9px] font-bold animate-pulse flex-shrink-0">[?]</button>
+              <TrainingQuestionButton
+                absolute={false}
+                completed={Boolean(shapeReason)}
+                label="曲线形态成因:"
+                className="inline-flex"
+                onClick={() => { setPendingShape(shapeReason); setShowShapeModal(true); }}
+              />
+              {selectedShapeLabel && (
+                <span className="font-bold text-[10px] truncate">{selectedShapeLabel}</span>
               )}
             </div>
             <div className="flex items-center gap-2 text-[10px] font-mono">
-              <span className="opacity-50">预警等级:</span>
-              {warningLevel ? (
-                <button onClick={() => { setPendingWarning(warningLevel); setShowWarningModal(true); }} className="flex items-center gap-1">
-                  <span className="w-5 h-5 bg-green-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">[v]</span>
-                  <span className="font-bold text-[10px]">{warningLevel}</span>
-                </button>
-              ) : (
-                <button onClick={() => { setPendingWarning(''); setShowWarningModal(true); }} className="w-5 h-5 bg-industrial-fg text-white flex items-center justify-center text-[9px] font-bold animate-pulse flex-shrink-0">[?]</button>
+              <TrainingQuestionButton
+                absolute={false}
+                completed={Boolean(warningLevel)}
+                label="预警等级:"
+                className="inline-flex"
+                onClick={() => { setPendingWarning(warningLevel); setShowWarningModal(true); }}
+              />
+              {selectedWarningLabel && (
+                <span className="font-bold text-[10px]">{selectedWarningLabel}</span>
               )}
             </div>
           </div>
@@ -382,6 +454,40 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
         </div>
       )}
 
+      <Modal isOpen={activeFill !== null} onClose={closeFillModal} title={activeFill ? fillQuestionTitle(activeFill.depth, activeFill.field) : '填写数值'}>
+        <div className="space-y-6">
+          <p className="text-xs leading-relaxed opacity-80">
+            {activeFill
+              ? `请输入第${CURRENT_PERIOD}期 ${activeFill.depth.toFixed(1)}m 深度的${activeFill.field === 'rate' ? '变化速率' : '本次变化量'}。`
+              : '请输入数值。'}
+          </p>
+          <div className="relative">
+            <input
+              type="text"
+              value={pendingFillValue}
+              onChange={(event) => handlePendingFillChange(event.target.value)}
+              placeholder="请输入数值"
+              className="w-full border border-industrial-fg bg-white p-2 pr-16 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-industrial-info"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] opacity-50 uppercase">
+              {activeFill?.field === 'rate' ? 'MM/D' : 'MM'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={confirmFillValue}
+              disabled={pendingFillValue.trim() === '' || Number.isNaN(Number(pendingFillValue))}
+              className="w-full"
+            >
+              确认
+            </Button>
+            <Button variant="secondary" onClick={closeFillModal} className="w-full">
+              取消
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* 模式 C — 曲线形态成因 */}
       <Modal isOpen={showShapeModal} onClose={() => setShowShapeModal(false)} title="曲线形态成因">
         <div className="space-y-4">
@@ -389,16 +495,16 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
           <div className="space-y-2">
             {SHAPE_OPTIONS.map((opt, i) => (
               <button
-                key={opt}
-                onClick={() => setPendingShape(opt)}
+                key={opt.value}
+                onClick={() => setPendingShape(opt.value)}
                 className={cn(
                   "w-full text-left px-4 py-2.5 border-2 text-xs transition-colors",
-                  pendingShape === opt
+                  pendingShape === opt.value
                     ? "bg-industrial-fg text-industrial-bg border-industrial-fg"
                     : "border-industrial-fg/20 hover:border-industrial-fg/40"
                 )}
               >
-                {String.fromCharCode(65 + i)}. {opt}
+                {String.fromCharCode(65 + i)}. {opt.label}
               </button>
             ))}
           </div>
@@ -415,16 +521,16 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
           <div className="space-y-2">
             {WARNING_OPTIONS.map((opt, i) => (
               <button
-                key={opt}
-                onClick={() => setPendingWarning(opt)}
+                key={opt.value}
+                onClick={() => setPendingWarning(opt.value)}
                 className={cn(
                   "w-full text-left px-4 py-2.5 border-2 text-xs transition-colors",
-                  pendingWarning === opt
+                  pendingWarning === opt.value
                     ? "bg-industrial-fg text-industrial-bg border-industrial-fg"
                     : "border-industrial-fg/20 hover:border-industrial-fg/40"
                 )}
               >
-                {String.fromCharCode(65 + i)}. {opt}
+                {String.fromCharCode(65 + i)}. {opt.label}
               </button>
             ))}
           </div>

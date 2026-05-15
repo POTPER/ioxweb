@@ -64,6 +64,8 @@ export const connectivityScoringConfig = buildScoringConfig('prep.connectivity')
 export const initialMeasurementScoringConfig = buildScoringConfig('prep.initialMeasurement');
 export const acqSafetyScoringConfig = buildScoringConfig('acq.safety');
 export const acqInstrumentScoringConfig = buildScoringConfig('acq.instrument');
+export const dataProcessingScoringConfig = buildScoringConfig('data.processing');
+export const dataReportScoringConfig = buildScoringConfig('data.report');
 
 export const scoringConfigs = {
   prepTech: technicalPreparationScoringConfig,
@@ -75,4 +77,6 @@ export const scoringConfigs = {
   prepInitialMeasurement: initialMeasurementScoringConfig,
   acqSafety: acqSafetyScoringConfig,
   acqInstrument: acqInstrumentScoringConfig,
+  dataProcessing: dataProcessingScoringConfig,
+  dataReport: dataReportScoringConfig,
 };

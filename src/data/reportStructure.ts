@@ -70,4 +70,18 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     name: '读数仪设置与数据采集',
     maxScore: 26,
   },
+  'data.processing': {
+    stepId: 'data.processing',
+    reportStepId: '4.2.3-1',
+    outlineCode: 'Q10',
+    name: '数据导入与预处理',
+    maxScore: 5,
+  },
+  'data.report': {
+    stepId: 'data.report',
+    reportStepId: '4.2.3-2',
+    outlineCode: 'Q11',
+    name: '监测日报表填写',
+    maxScore: 16,
+  },
 };
