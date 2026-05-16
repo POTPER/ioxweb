@@ -84,4 +84,11 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     name: '监测日报表填写',
     maxScore: 16,
   },
+  'data.analysis': {
+    stepId: 'data.analysis',
+    reportStepId: '4.2.3-3',
+    outlineCode: 'Q12',
+    name: '多期数据分析与预警判断',
+    maxScore: 17,
+  },
 };

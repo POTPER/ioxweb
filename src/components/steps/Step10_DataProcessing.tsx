@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Button, Modal, TechnicalInput } from '../Common';
+import { Button, Modal } from '../Common';
 import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { cn } from '../../lib/utils';
 import { Link, Unlink, Battery, Zap, AlertTriangle, Loader2, Monitor } from 'lucide-react';
@@ -8,6 +8,7 @@ import { WireframePlaceholder } from '../WireframeOverlay';
 import { dataProcessingRows } from '../../data/trainingContent';
 import { dataProcessingScoringConfig } from '../../data/scoringConfig';
 import { calculateStepScore } from '../../lib/scoring';
+import { loadStepDraft, saveStepDraft } from '../../lib/trainingStorage';
 
 const AREA_HOLES: Record<string, number> = { '01': 5, '02': 6, '03': 8 };
 
@@ -28,6 +29,28 @@ type ImportSnapshot = {
   hole: string;
 };
 
+type DataProcessingDraft = {
+  isConnected?: boolean;
+  selectedArea?: string;
+  selectedHole?: string;
+  dataImported?: boolean;
+  analyzed?: boolean;
+  cumulativeDisp?: Record<number, number | null>;
+  userFills?: Record<number, string>;
+  importSnapshot?: ImportSnapshot | null;
+};
+
+const normalizeDepthRecord = <T,>(record?: Record<number, T>): Record<number, T> => {
+  const normalized: Record<number, T> = {};
+  Object.entries(record ?? {}).forEach(([key, value]) => {
+    const depth = Number(key);
+    if (!Number.isNaN(depth)) {
+      normalized[depth] = value as T;
+    }
+  });
+  return normalized;
+};
+
 const processingRows: DepthRow[] = dataProcessingRows.map(row => ({
   period: Number(row.period),
   date: row.date,
@@ -44,14 +67,30 @@ const DATA_DATE = processingRows[0]?.date ?? '2026-03-24';
 const DEPTH_POINTS = processingRows.length;
 const MISSING_ROWS = processingRows.filter(row => row.isMissing);
 const MISSING_DEPTHS = MISSING_ROWS.map(row => row.depth);
+const MAX_FILL_VALUE = 999.99;
+const normalizeFillInput = (value: string) => {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [integerRaw = '', decimalRaw] = cleaned.split('.');
+  const integerPart = integerRaw.slice(0, 3);
+  const decimalPart = decimalRaw?.slice(0, 2);
+  return cleaned.includes('.') ? `${integerPart}.${decimalPart ?? ''}` : integerPart;
+};
+const isValidFillInput = (value: string) => {
+  const trimmed = value.trim();
+  const numericValue = Number(trimmed);
+  return trimmed !== '' && !Number.isNaN(numericValue) && numericValue <= MAX_FILL_VALUE;
+};
+const formatDepthLabel = (depth: number) => `${Number.isInteger(depth) ? depth.toFixed(0) : depth.toFixed(1)}m`;
+const fillQuestionTitle = (depth: number) => `${formatDepthLabel(depth)} 本次位移量`;
 
 export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
-  const [isConnected, setIsConnected] = useState(false);
+  const draft = loadStepDraft<DataProcessingDraft>('10');
+  const [isConnected, setIsConnected] = useState(draft?.isConnected ?? false);
   const [connecting, setConnecting] = useState(false);
-  const [selectedArea, setSelectedArea] = useState('');
-  const [selectedHole, setSelectedHole] = useState('');
-  const [dataImported, setDataImported] = useState(false);
+  const [selectedArea, setSelectedArea] = useState(draft?.selectedArea ?? '');
+  const [selectedHole, setSelectedHole] = useState(draft?.selectedHole ?? '');
+  const [dataImported, setDataImported] = useState(draft?.dataImported ?? false);
   const [importing, setImporting] = useState(false);
 
   const [exported, setExported] = useState(false);
@@ -59,15 +98,32 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   const [showImportConfirmModal, setShowImportConfirmModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const [analyzed, setAnalyzed] = useState(false);
+  const [analyzed, setAnalyzed] = useState(draft?.analyzed ?? false);
   const [analyzing, setAnalyzing] = useState(false);
   const [showAnalyzeConfirmModal, setShowAnalyzeConfirmModal] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [cumulativeDisp, setCumulativeDisp] = useState<Record<number, number | null>>({});
-  const [userFills, setUserFills] = useState<Record<number, string>>({});
+  const [cumulativeDisp, setCumulativeDisp] = useState<Record<number, number | null>>(() => normalizeDepthRecord(draft?.cumulativeDisp));
+  const [userFills, setUserFills] = useState<Record<number, string>>(() => normalizeDepthRecord(draft?.userFills));
   const [activeFillDepth, setActiveFillDepth] = useState<number | null>(null);
   const [pendingFillValue, setPendingFillValue] = useState('');
-  const [importSnapshot, setImportSnapshot] = useState<ImportSnapshot | null>(null);
+  const [importSnapshot, setImportSnapshot] = useState<ImportSnapshot | null>(draft?.importSnapshot ?? null);
+
+  const saveDraft = useCallback((next: Partial<DataProcessingDraft>) => {
+    const currentDraft = loadStepDraft<DataProcessingDraft>('10') ?? {
+      isConnected,
+      selectedArea,
+      selectedHole,
+      dataImported,
+      analyzed,
+      cumulativeDisp,
+      userFills,
+      importSnapshot,
+    };
+    saveStepDraft('10', {
+      ...currentDraft,
+      ...next,
+    });
+  }, [isConnected, selectedArea, selectedHole, dataImported, analyzed, cumulativeDisp, userFills, importSnapshot]);
 
 
   const opLog = useRef<{ action: string; value?: string; timestamp: string }[]>([]);
@@ -79,22 +135,29 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     if (connecting) return;
     setConnecting(true);
     logOp('connect');
-    setTimeout(() => { setConnecting(false); setIsConnected(true); }, 1500);
+    setTimeout(() => {
+      setConnecting(false);
+      setIsConnected(true);
+      saveDraft({ isConnected: true });
+    }, 1500);
   };
 
   const handleDisconnect = () => {
     setIsConnected(false);
+    saveDraft({ isConnected: false });
     logOp('disconnect');
   };
 
   const handleAreaChange = (val: string) => {
     setSelectedArea(val);
     setSelectedHole('');
+    saveDraft({ selectedArea: val, selectedHole: '' });
     if (val) { logOp('selectArea', val); }
   };
 
   const handleHoleChange = (val: string) => {
     setSelectedHole(val);
+    saveDraft({ selectedHole: val });
     if (val) { logOp('selectHole', val); }
   };
 
@@ -112,10 +175,24 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       hole: selectedHole.padStart(2, '0'),
     };
     setImportSnapshot(snapshot);
+    saveDraft({
+      dataImported: false,
+      analyzed: false,
+      cumulativeDisp: {},
+      userFills: {},
+      importSnapshot: snapshot,
+    });
     logOp('import', JSON.stringify(snapshot));
     setTimeout(() => {
       setImporting(false);
       setDataImported(true);
+      saveDraft({
+        dataImported: true,
+        analyzed: false,
+        cumulativeDisp: {},
+        userFills: {},
+        importSnapshot: snapshot,
+      });
     }, 800);
   };
 
@@ -144,6 +221,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
     setExported(false);
     hasSubmittedRef.current = false;
     setAnalyzing(true);
+    saveDraft({ userFills: {} });
     logOp('analyze');
     setTimeout(() => {
       const disp: Record<number, number | null> = {};
@@ -153,6 +231,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       setCumulativeDisp(disp);
       setAnalyzing(false);
       setAnalyzed(true);
+      saveDraft({ analyzed: true, cumulativeDisp: disp, userFills: {} });
       setShowAnalysisModal(true);
     }, 2000);
   };
@@ -177,17 +256,16 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
   };
 
   const handlePendingFillChange = (value: string) => {
-    const normalized = value
-      .replace(/[^\d.]/g, '')
-      .replace(/(\..*)\./g, '$1');
-    setPendingFillValue(normalized);
+    setPendingFillValue(normalizeFillInput(value));
   };
 
   const confirmFillValue = () => {
     if (activeFillDepth === null) return;
     const trimmed = pendingFillValue.trim();
-    if (trimmed === '' || Number.isNaN(Number(trimmed))) return;
-    setUserFills(prev => ({ ...prev, [activeFillDepth]: Number(trimmed).toFixed(2) }));
+    if (!isValidFillInput(trimmed)) return;
+    const nextUserFills = { ...userFills, [activeFillDepth]: Number(trimmed).toFixed(2) };
+    setUserFills(nextUserFills);
+    saveDraft({ userFills: nextUserFills });
     closeFillModal();
   };
 
@@ -384,7 +462,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                             <TrainingQuestionButton
                               absolute={false}
                               completed={Boolean(userFills[r.depth]?.trim())}
-                              label={userFills[r.depth]?.trim() || '请填写'}
+                              label={fillQuestionTitle(r.depth)}
                               className="inline-flex"
                               onClick={() => openFillModal(r.depth)}
                             />
@@ -423,24 +501,33 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       </div>
       </WireframePlaceholder>
 
-      <Modal isOpen={activeFillDepth !== null} onClose={closeFillModal} title="填写本次位移量">
+      <Modal
+        isOpen={activeFillDepth !== null}
+        onClose={closeFillModal}
+        title={activeFillDepth !== null ? fillQuestionTitle(activeFillDepth) : '填写本次位移量'}
+      >
         <div className="space-y-6">
           <p className="text-xs leading-relaxed opacity-80">
             {activeFillDepth !== null
-              ? `请输入第${DATA_PERIOD}期 ${activeFillDepth.toFixed(1)}m 深度的本次位移量。`
+              ? `请输入第${DATA_PERIOD}期 ${formatDepthLabel(activeFillDepth)} 深度的本次位移量。`
               : '请输入本次位移量。'}
           </p>
-          <TechnicalInput
-            label="本次位移量"
-            value={pendingFillValue}
-            onChange={handlePendingFillChange}
-            unit="MM"
-            placeholder="请输入数值"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={pendingFillValue}
+              onChange={(event) => handlePendingFillChange(event.target.value)}
+              placeholder="请输入数值"
+              className="w-full border border-industrial-fg bg-white p-2 pr-16 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-industrial-info"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] opacity-50 uppercase">
+              MM
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Button
               onClick={confirmFillValue}
-              disabled={pendingFillValue.trim() === '' || Number.isNaN(Number(pendingFillValue))}
+              disabled={!isValidFillInput(pendingFillValue)}
               className="w-full"
             >
               确认

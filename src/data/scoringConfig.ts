@@ -66,6 +66,7 @@ export const acqSafetyScoringConfig = buildScoringConfig('acq.safety');
 export const acqInstrumentScoringConfig = buildScoringConfig('acq.instrument');
 export const dataProcessingScoringConfig = buildScoringConfig('data.processing');
 export const dataReportScoringConfig = buildScoringConfig('data.report');
+export const dataAnalysisScoringConfig = buildScoringConfig('data.analysis');
 
 export const scoringConfigs = {
   prepTech: technicalPreparationScoringConfig,
@@ -79,4 +80,5 @@ export const scoringConfigs = {
   acqInstrument: acqInstrumentScoringConfig,
   dataProcessing: dataProcessingScoringConfig,
   dataReport: dataReportScoringConfig,
+  dataAnalysis: dataAnalysisScoringConfig,
 };

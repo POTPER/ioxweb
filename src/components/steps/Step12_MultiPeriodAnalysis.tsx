@@ -7,6 +7,8 @@ import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { Modal, Button } from '../Common';
 import { CUM_DISP, DEPTHS, PERIOD_DATES as REAL_DATES, PERIOD_INTERVALS, MONITORING } from '../../data/monitoringData';
+import { dataAnalysisScoringConfig } from '../../data/scoringConfig';
+import { calculateStepScore } from '../../lib/scoring';
 
 // ===== Data from 监测数据.md =====
 const PERIODS = 8;
@@ -47,27 +49,35 @@ function getCorrectWarningDepths(rows: DepthRow[]): number[] {
   return rows.filter(r => r.cumDisp >= WARNING_THRESHOLD).map(r => r.depth);
 }
 
-// ===== Questions definition =====
-const Q1_OPTIONS = ['8m', '10m', '12m', '14m'];
-const Q2_OPTIONS = ['第5期', '第6期', '第7期', '第8期'];
-const Q3_OPTIONS = ['0~5m', '5~10m', '10~15m', '15~20m'];
-const Q4_OPTIONS = ['9.0m\u30019.5m\u300110.0m\u300110.5m', '9.0m\u30019.5m\u300110.0m', '9.5m\u300110.0m\u300110.5m', '10.0m\u300110.5m\u300111.0m'];
-const Q5_OPTIONS = ['加速增大', '匀速增大', '趋于收敛', '波动变化'];
-const Q6_OPTIONS = ['加密监测频次并通知设计单位复核', '维持现有频次，继续观察', '暂停施工，启动应急预案', '降低监测频次，节约成本'];
-const Q7_OPTIONS = ['缩短至3天', '维持7天', '延长至14天', '延长至30天'];
-
 const CORRECT_Q6 = '加密监测频次并通知设计单位复核';
 
-// 模式C 问题元数据：编号 + 标题 + 题干 + 选项 + 单/多选
-const QUESTIONS = [
-  { id: 'q1', num: 1, title: '累计位移增长最大的深度', prompt: '观察多期曲线，判断累计位移增长幅度最大的深度。', options: Q1_OPTIONS, multi: false },
-  { id: 'q2', num: 2, title: '位移加速起始期次', prompt: '哪一期开始出现明显位移加速（曲线斜率明显增大）？', options: Q2_OPTIONS, multi: false },
-  { id: 'q3', num: 3, title: '近 3 期增量最大深度区段', prompt: '对比第 6/7/8 期，位移增量最大的深度区段是？', options: Q3_OPTIONS, multi: false },
-  { id: 'q4', num: 4, title: '超过预警值的深度', prompt: '第 8 期中，哪些深度的累计位移超过黄色预警值 (35mm)？', options: Q4_OPTIONS, multi: false },
-  { id: 'q5', num: 5, title: '10.0m 近 3 期发展趋势', prompt: '10.0m 深度处近 3 期累计位移趋势判定：', options: Q5_OPTIONS, multi: false },
-  { id: 'q6', num: 6, title: '应采取的处理措施', prompt: '结合预警等级和趋势，判断应采取的措施：', options: Q6_OPTIONS, multi: false },
-  { id: 'q7', num: 7, title: '下期监测间隔建议', prompt: '参照 GB50497，下一期监测间隔应：', options: Q7_OPTIONS, multi: false },
+const DATA_ANALYSIS_QUESTION_IDS = [
+  { id: 'q1', questionId: 'data.analysis.maxDepth' },
+  { id: 'q2', questionId: 'data.analysis.accelStart' },
+  { id: 'q3', questionId: 'data.analysis.maxRecentZone' },
+  { id: 'q4', questionId: 'data.analysis.warningDepths' },
+  { id: 'q5', questionId: 'data.analysis.trend10' },
+  { id: 'q6', questionId: 'data.analysis.action' },
+  { id: 'q7', questionId: 'data.analysis.nextInterval' },
 ] as const;
+
+// 模式C 问题元数据来自 CSV 题库。
+const QUESTIONS = DATA_ANALYSIS_QUESTION_IDS.map((item, index) => {
+  const question = dataAnalysisScoringConfig.questions.find(config => config.questionId === item.questionId);
+  if (!question || question.type !== 'singleChoice') {
+    throw new Error(`未找到第12步题目配置：${item.questionId}`);
+  }
+
+  return {
+    id: item.id,
+    questionId: item.questionId,
+    num: index + 1,
+    title: question.label,
+    prompt: question.prompt ?? '',
+    options: question.options,
+    multi: false,
+  };
+});
 
 // ===== Component =====
 export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
@@ -123,7 +133,11 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
     setActiveQuestion(null);
   };
 
-  const renderAnswerSummary = (id: string): string => getAnswer(id);
+  const renderAnswerSummary = (id: string): string => {
+    const answer = getAnswer(id);
+    const question = QUESTIONS.find(item => item.id === id);
+    return question?.options.find(option => option.value === answer)?.label ?? answer;
+  };
 
   // 自动提交：全部填写完成后 600ms 内无修改则提交（防抖）
   const [autoSubmitted, setAutoSubmitted] = useState(false);
@@ -196,29 +210,30 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
 
   // ===== Scoring =====
   const handleSubmit = () => {
-    const s1 = q1 === '10m' ? 2 : 0;
-    const s2 = q2 === '第7期' ? 3 : 0;
-    const s3 = q3 === '5~10m' ? 2 : 0;
-
-    // Q4: exact match on warning depths
     const correctQ4 = correctWarning.map(d => d.toFixed(1) + 'm').join('、');
-    const s4 = q4 === correctQ4 ? 3 : 0;
+    const scoreResult = calculateStepScore(dataAnalysisScoringConfig, [
+      { questionId: 'data.analysis.maxDepth', answer: q1 },
+      { questionId: 'data.analysis.accelStart', answer: q2 },
+      { questionId: 'data.analysis.maxRecentZone', answer: q3 },
+      { questionId: 'data.analysis.warningDepths', answer: q4 },
+      { questionId: 'data.analysis.trend10', answer: q5 },
+      { questionId: 'data.analysis.action', answer: q6 },
+      { questionId: 'data.analysis.nextInterval', answer: q7 },
+    ]);
 
-    const s5 = q5 === '加速增大' ? 2 : 0;
-
-    // Q6: single-choice exact match
-    const s6 = q6 === CORRECT_Q6 ? 3 : 0;
-
-    const s7 = q7 === '缩短至3天' ? 2 : 0;
-
-    const totalScore = s1 + s2 + s3 + s4 + s5 + s6 + s7;
+    const getScore = (questionId: string) => scoreResult.answers.find(answer => answer.questionId === questionId)?.score ?? 0;
+    const s1 = getScore('data.analysis.maxDepth');
+    const s2 = getScore('data.analysis.accelStart');
+    const s3 = getScore('data.analysis.maxRecentZone');
+    const s4 = getScore('data.analysis.warningDepths');
+    const s5 = getScore('data.analysis.trend10');
+    const s6 = getScore('data.analysis.action');
+    const s7 = getScore('data.analysis.nextInterval');
 
     onNext({
-      stepId: 'step12',
+      ...scoreResult,
+      legacyStepId: 'step12',
       stepName: '多期数据分析与预警判断',
-      submittedAt: new Date().toISOString(),
-      totalScore,
-      maxScore: 17,
       phases: {
         curveAnalysis: {
           answers: [
@@ -336,12 +351,12 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
                 <div className="space-y-2">
                   {q.options.map((opt, idx) => {
                     const letter = String.fromCharCode(65 + idx);
-                    const selected = pendingSingle === opt;
+                    const selected = pendingSingle === opt.value;
                     return (
                       <button
-                        key={opt}
+                        key={opt.value}
                         type="button"
-                        onClick={() => setPendingSingle(opt)}
+                        onClick={() => setPendingSingle(opt.value)}
                         className={cn(
                           'w-full text-left p-3 text-[11px] border transition-all flex items-start gap-3',
                           selected
@@ -350,7 +365,7 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
                         )}
                       >
                         <span className="font-bold mt-0.5">{letter}.</span>
-                        <span className="flex-1 leading-relaxed">{opt}</span>
+                        <span className="flex-1 leading-relaxed">{opt.label}</span>
                       </button>
                     );
                   })}

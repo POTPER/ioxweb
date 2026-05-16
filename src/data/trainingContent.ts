@@ -4,6 +4,7 @@ import questionsCsv from './training/questions.csv?raw';
 import optionsCsv from './training/options.csv?raw';
 import uiLabelsCsv from './training/uiLabels.csv?raw';
 import initialMeasurementDataCsv from './training/initialMeasurementData.csv?raw';
+import monitoringPeriodDataCsv from './training/monitoringPeriodData.csv?raw';
 import dataProcessingDataCsv from './training/dataProcessingData.csv?raw';
 import reportCompilationDataCsv from './training/reportCompilationData.csv?raw';
 import resourcesCsv from './training/resources.csv?raw';
@@ -61,6 +62,19 @@ export type InitialMeasurementDataRow = {
   depth: string;
   a: string;
   b: string;
+};
+
+export type MonitoringPeriodDataRow = {
+  period: string;
+  date: string;
+  previousPeriod: string;
+  previousDate: string;
+  intervalDays: string;
+  depth: string;
+  cumDisp: string;
+  prevCumDisp: string;
+  change: string;
+  rate: string;
 };
 
 export type DataProcessingDataRow = {
@@ -149,6 +163,7 @@ export const trainingHotspots = parseCsv<TrainingHotspotContent>(hotspotsCsv);
 export const trainingQuestions = parseCsv<TrainingQuestionContent>(questionsCsv);
 export const trainingOptions = parseCsv<TrainingOptionContent>(optionsCsv);
 export const initialMeasurementDataRows = parseCsv<InitialMeasurementDataRow>(initialMeasurementDataCsv);
+export const monitoringPeriodRows = parseCsv<MonitoringPeriodDataRow>(monitoringPeriodDataCsv);
 export const dataProcessingRows = parseCsv<DataProcessingDataRow>(dataProcessingDataCsv);
 export const reportCompilationRows = parseCsv<ReportCompilationDataRow>(reportCompilationDataCsv);
 export const trainingResources = parseCsv<TrainingResourceContent>(resourcesCsv);

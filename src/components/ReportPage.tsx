@@ -112,7 +112,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     const maxScores: Record<string, number> = {
       'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, 'prep.inspection': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
       '4.2.2-1': 4, '4.2.2-2': 26,
-      '4.2.3-1': 5, '4.2.3-2': 15, '4.2.3-3': 20
+      '4.2.3-1': 5, '4.2.3-2': 16, '4.2.3-3': 17
     };
     return stepIds.reduce((acc, id) => acc + (maxScores[id] || 0), 0);
   };

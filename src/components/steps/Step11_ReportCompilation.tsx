@@ -58,6 +58,20 @@ const FILL_FIELDS: { depth: number; field: 'change' | 'rate' }[] = [
   { depth: 18.0, field: 'rate' },
 ];
 
+const MAX_FILL_VALUE = 999.99;
+const normalizeFillInput = (value: string) => {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [integerRaw = '', decimalRaw] = cleaned.split('.');
+  const integerPart = integerRaw.slice(0, 3);
+  const decimalPart = decimalRaw?.slice(0, 2);
+  return cleaned.includes('.') ? `${integerPart}.${decimalPart ?? ''}` : integerPart;
+};
+const isValidFillInput = (value: string) => {
+  const trimmed = value.trim();
+  const numericValue = Number(trimmed);
+  return trimmed !== '' && !Number.isNaN(numericValue) && numericValue <= MAX_FILL_VALUE;
+};
+
 const SHAPE_OPTIONS = [
   { value: 'shapeExcavationUnloading', label: '开挖卸荷致中部土压力释放，墙体向坑内鼓出' },
   { value: 'topDisplacementDueSupport', label: '支撑刚度不足致顶部位移过大' },
@@ -130,16 +144,13 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
   };
 
   const handlePendingFillChange = (value: string) => {
-    const normalized = value
-      .replace(/[^\d.]/g, '')
-      .replace(/(\..*)\./g, '$1');
-    setPendingFillValue(normalized);
+    setPendingFillValue(normalizeFillInput(value));
   };
 
   const confirmFillValue = () => {
     if (!activeFill) return;
     const trimmed = pendingFillValue.trim();
-    if (trimmed === '' || Number.isNaN(Number(trimmed))) return;
+    if (!isValidFillInput(trimmed)) return;
     setFill(fillKey(activeFill.depth, activeFill.field), Number(trimmed).toFixed(2));
     closeFillModal();
   };
@@ -476,7 +487,7 @@ export const ReportCompilation: React.FC<{ onNext: (data: any) => void }> = ({ o
           <div className="grid grid-cols-2 gap-3">
             <Button
               onClick={confirmFillValue}
-              disabled={pendingFillValue.trim() === '' || Number.isNaN(Number(pendingFillValue))}
+              disabled={!isValidFillInput(pendingFillValue)}
               className="w-full"
             >
               确认
