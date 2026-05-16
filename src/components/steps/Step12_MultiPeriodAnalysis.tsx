@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import ReactECharts from 'echarts-for-react';
 import { cn } from '../../lib/utils';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useWireframe } from '../WireframeContext';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { Modal, Button } from '../Common';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { CUM_DISP, DEPTHS, PERIOD_DATES as REAL_DATES, PERIOD_INTERVALS, MONITORING } from '../../data/monitoringData';
 import { dataAnalysisScoringConfig } from '../../data/scoringConfig';
 import { calculateStepScore } from '../../lib/scoring';
@@ -133,21 +134,13 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
     setActiveQuestion(null);
   };
 
-  const renderAnswerSummary = (id: string): string => {
-    const answer = getAnswer(id);
-    const question = QUESTIONS.find(item => item.id === id);
-    return question?.options.find(option => option.value === answer)?.label ?? answer;
-  };
-
   // 自动提交：全部填写完成后 600ms 内无修改则提交（防抖）
-  const [autoSubmitted, setAutoSubmitted] = useState(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
     if (!allAnswered) return;
     submitTimerRef.current = setTimeout(() => {
       handleSubmit();
-      setAutoSubmitted(true);
     }, 600);
     return () => { if (submitTimerRef.current) clearTimeout(submitTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -308,26 +301,23 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
       </div>
 
       {/* Bottom: Questions (模式C 弹窗答题) */}
-      <WireframePlaceholder label="曲线判读与预警交互区（6 题弹窗答题：最大深度/加速期次/区段/趋势/处理措施多选/间隔建议）" className="min-h-[200px]">
+      <WireframePlaceholder label="曲线判读与预警交互区（7 题弹窗答题：最大深度/加速期次/区段/趋势/处理措施/间隔建议）" className="min-h-[200px]">
       <div className="bg-white border-2 border-industrial-fg shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] p-4 space-y-3">
         <div className="text-[10px] font-mono uppercase tracking-widest opacity-40">曲线判读与预警判断</div>
 
         <div className="space-y-1.5">
           {QUESTIONS.map(q => {
             const answered = isAnswered(q.id);
-            const summary = renderAnswerSummary(q.id);
             return (
-              <div key={q.id} className="flex items-center gap-2 text-[10px] font-mono">
-                <span className="opacity-40 font-bold w-6 flex-shrink-0">{'Q' + q.num}</span>
-                <span className="opacity-50 min-w-0 truncate">{q.title}</span>
-                {answered ? (
-                  <button onClick={() => openQuestion(q.id)} className="flex items-center gap-1 ml-auto flex-shrink-0">
-                    <span className="w-5 h-5 bg-green-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">[✓]</span>
-                    <span className="font-bold text-[10px] truncate max-w-[180px]">{summary}</span>
-                  </button>
-                ) : (
-                  <button onClick={() => openQuestion(q.id)} className="ml-auto w-5 h-5 bg-industrial-fg text-white flex items-center justify-center text-[9px] font-bold animate-pulse flex-shrink-0">[?]</button>
-                )}
+              <div key={q.id} className="flex items-center gap-2 text-[10px] font-mono min-w-0">
+                <span className="opacity-40 font-bold w-6 flex-shrink-0">{String(q.num).padStart(2, '0')}</span>
+                <TrainingQuestionButton
+                  absolute={false}
+                  completed={answered}
+                  label={q.title}
+                  className="min-w-0"
+                  onClick={() => openQuestion(q.id)}
+                />
               </div>
             );
           })}
@@ -344,7 +334,7 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
             <Modal
               isOpen={true}
               onClose={() => setActiveQuestion(null)}
-              title={'Q' + q.num + '·' + q.title}
+              title={q.title}
             >
               <div className="space-y-4">
                 <p className="text-xs font-bold leading-relaxed">{q.prompt}</p>
@@ -379,21 +369,6 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
         })()}
       </AnimatePresence>
 
-      {/* Auto-save status indicator — 仅在全部答完后显示 */}
-      {allAnswered && (
-        <div className="flex justify-end pt-2">
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-green-50 border border-green-300 px-4 py-2 text-[10px] text-green-800 font-mono flex items-center gap-2"
-          >
-            <CheckCircle2 size={14} className="text-green-600" />
-            {autoSubmitted
-              ? '已自动保存答案，点击左侧「提交」按钮完成本次实操。'
-              : '全部填写完成，正在自动保存...'}
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 };
