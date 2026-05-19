@@ -23,8 +23,9 @@ import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession } from './lib/trainingStorage';
+import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
+import { createDevSampleStepResults } from './data/devSampleAnswerSheet';
 
 function AppInner() {
   const [hasStarted, setHasStarted] = useState(false);
@@ -80,6 +81,28 @@ function AppInner() {
 
   const handleFinish = () => {
     setReportData(generateMockReport("张三", stepData));
+    setShowReport(true);
+  };
+
+  const handleDevSampleAnswerSheet = () => {
+    const sampleResults = createDevSampleStepResults();
+    const sampleCompletedSteps = Object.keys(sampleResults) as StepId[];
+    const session = loadTrainingSession();
+
+    saveTrainingSession({
+      ...session,
+      submissions: Object.fromEntries(
+        Object.entries(sampleResults).map(([stepId, result]) => [stepId, result.submission ?? result])
+      ),
+      results: sampleResults,
+      completedSteps: sampleCompletedSteps,
+    });
+
+    setStepData(sampleResults);
+    setCompletedSteps(new Set(sampleCompletedSteps));
+    setAllUnlocked(true);
+    setShowDevPanel(false);
+    setReportData(generateMockReport("开发示例学生", sampleResults));
     setShowReport(true);
   };
 
@@ -378,6 +401,12 @@ function AppInner() {
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
             >
               查看评估报告
+            </button>
+            <button
+              onClick={handleDevSampleAnswerSheet}
+              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-green-300 bg-green-50 hover:bg-green-100 transition-colors text-green-700"
+            >
+              典型评分答卷
             </button>
             <button
               onClick={() => { clearTrainingSession(); setStepData({}); setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}

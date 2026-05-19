@@ -89,6 +89,6 @@ export const reportStepMap: Record<string, ReportStepMeta> = {
     reportStepId: '4.2.3-3',
     outlineCode: 'Q12',
     name: '多期数据分析与预警判断',
-    maxScore: 17,
+    maxScore: 22,
   },
 };

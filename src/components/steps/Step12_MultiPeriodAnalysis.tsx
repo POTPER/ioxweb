@@ -231,20 +231,20 @@ export const MultiPeriodAnalysis: React.FC<{ onNext: (data: any) => void }> = ({
         curveAnalysis: {
           answers: [
             { questionId: '3-3-1', label: '累计位移增长最大深度', userAnswer: q1, correctAnswer: '10m', score: s1, maxScore: 2 },
-            { questionId: '3-3-2', label: '位移加速起始期次', userAnswer: q2, correctAnswer: '第7期', score: s2, maxScore: 3 },
-            { questionId: '3-3-3', label: '近3期增量最大深度区段', userAnswer: q3, correctAnswer: '5~10m', score: s3, maxScore: 2 },
+            { questionId: '3-3-2', label: '位移加速起始期次', userAnswer: q2, correctAnswer: '第7期', score: s2, maxScore: 4 },
+            { questionId: '3-3-3', label: '近3期增量最大深度区段', userAnswer: q3, correctAnswer: '5~10m', score: s3, maxScore: 3 },
           ],
         },
         warningAssessment: {
           answers: [
-            { questionId: '3-3-4', label: '超过预警值的深度', userAnswer: q4, correctAnswer: correctWarning.map(d => d.toFixed(1) + 'm').join('、'), score: s4, maxScore: 3 },
+            { questionId: '3-3-4', label: '超过预警值的深度', userAnswer: q4, correctAnswer: correctWarning.map(d => d.toFixed(1) + 'm').join('、'), score: s4, maxScore: 4 },
             { questionId: '3-3-5', label: '10.0m深度近3期趋势', userAnswer: q5, correctAnswer: '加速增大', score: s5, maxScore: 2 },
           ],
         },
         actionDecision: {
           answers: [
-            { questionId: '3-3-6', label: '处理措施', userAnswer: q6, correctAnswer: CORRECT_Q6, score: s6, maxScore: 3 },
-            { questionId: '3-3-7', label: '下期监测间隔建议', userAnswer: q7, correctAnswer: '缩短至3天', score: s7, maxScore: 2 },
+            { questionId: '3-3-6', label: '处理措施', userAnswer: q6, correctAnswer: CORRECT_Q6, score: s6, maxScore: 4 },
+            { questionId: '3-3-7', label: '下期监测间隔建议', userAnswer: q7, correctAnswer: '缩短至3天', score: s7, maxScore: 3 },
           ],
         },
       },

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TechnicalCard, Button, Modal } from '../Common';
+import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { AlertCircle } from 'lucide-react';
@@ -117,6 +118,8 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
   const [cableAlignment, setCableAlignment] = useState<'N' | 'S' | 'E' | 'W' | null>(null);
   const [pendingAlignment, setPendingAlignment] = useState<'N' | 'S' | 'E' | 'W' | null>(null);
   const [monitorInterval, setMonitorInterval] = useState('');
+  const [showIntervalModal, setShowIntervalModal] = useState(false);
+  const [pendingInterval, setPendingInterval] = useState('');
 
   // --- Supplementary measurement ---
   const [remeasureParams, setRemeasureParams] = useState({ group: '05', depth: 3.0, direction: '正测' as '正测' | '反测' });
@@ -131,6 +134,8 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
 
   const cableQuestion = acqInstrumentScoringConfig.questions.find(question => question.questionId === 'acq.instrument.cable');
   const cableOptions = cableQuestion?.type === 'singleChoice' ? cableQuestion.options : [];
+  const intervalQuestion = acqInstrumentScoringConfig.questions.find(question => question.questionId === 'acq.instrument.interval');
+  const intervalOptions = intervalQuestion?.type === 'singleChoice' ? intervalQuestion.options : [];
 
   const menuItems = ['1. 开始新的测量', '2. 测孔参数设置', '3. 探头设置', '4. 补测数据点', '5. 时间设置'];
 
@@ -623,6 +628,24 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
     setPendingCable(null);
   };
 
+  const openIntervalModal = () => {
+    setPendingInterval(monitorInterval);
+    setShowIntervalModal(true);
+  };
+
+  const handleIntervalConfirm = () => {
+    if (!pendingInterval) return;
+    setMonitorInterval(pendingInterval);
+    recordAnswer('acq.instrument.interval', pendingInterval);
+    setShowIntervalModal(false);
+    setPendingInterval('');
+  };
+
+  const handleIntervalCancel = () => {
+    setShowIntervalModal(false);
+    setPendingInterval('');
+  };
+
   // --- Cleanup phase check ---
   useEffect(() => {
     if (phase >= 5 && !isMeasuring && !autoCollecting && lcdScreen === 'main') {
@@ -858,8 +881,13 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
               <div className="flex items-center justify-between gap-2">
                 <div className={cn("flex items-center space-x-3 flex-wrap gap-y-1", !fieldUnlocked && "opacity-40 pointer-events-none")}>
                   <span className="text-[10px] font-mono">深度: <strong className="text-base">{currentDepth.toFixed(1)}m</strong></span>
-                  <label className="text-[10px] font-mono">间距: <input type="text" value={monitorInterval} onChange={e => setMonitorInterval(e.target.value)}
-                    className="w-12 border border-industrial-fg px-1 text-center" placeholder="请输入" /> m</label>
+                  <TrainingQuestionButton
+                    absolute={false}
+                    completed={Boolean(monitorInterval)}
+                    label="测量间距"
+                    className="inline-flex"
+                    onClick={openIntervalModal}
+                  />
                   <div className="flex space-x-1">
                     <Button variant="secondary" className="h-7 text-[9px] px-2" onClick={() => {
                       if (showMovePrompt && isMeasuring && measureType) {
@@ -1142,6 +1170,36 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
               referrerPolicy="no-referrer"
             />
           )}
+        </div>
+      </Modal>
+
+      <Modal isOpen={showIntervalModal} onClose={handleIntervalCancel} title={intervalQuestion?.label || '测量间距'}>
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed">
+            {intervalQuestion?.prompt || '请选择测斜管上下移动的间距。'}
+          </p>
+          <div className="space-y-2">
+            {intervalOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPendingInterval(opt.value)}
+                className={cn(
+                  'w-full text-left p-3 text-[11px] border transition-all flex items-start gap-3',
+                  pendingInterval === opt.value
+                    ? 'border-industrial-fg bg-industrial-fg text-white'
+                    : 'border-industrial-fg/20 hover:border-industrial-fg'
+                )}
+              >
+                <span className="font-bold mt-0.5">{opt.code}.</span>
+                <span className="flex-1 leading-relaxed">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-center gap-3 pt-4 border-t border-industrial-fg/10">
+            <Button onClick={handleIntervalConfirm} disabled={!pendingInterval} className="px-12">确认</Button>
+            <Button variant="secondary" onClick={handleIntervalCancel}>取消</Button>
+          </div>
         </div>
       </Modal>
 

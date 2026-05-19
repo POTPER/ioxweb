@@ -25,7 +25,7 @@ acq.safety,acq.safety.weather,环境确认,请确认当日现场环境条件是�
 acq.safety,acq.safety.equipment,安全防护,请选择进入施工现场必须的个人防护装备。,multiChoice,2,helmet;vest,,,,进入施工现场进行测斜监测时，安全帽和反光背心为必备防护装备。安全帽防止高处坠物伤害，反光背心提高人员可视性。防毒面具和护目镜在常规测斜监测中非必需装备。
 acq.safety,acq.safety.instrument,测量仪器,请选择本次深层水平位移监测使用的仪器。,singleChoice,2,slidingInclinometer,,,,滑动式测斜仪利用重力加速度传感器逐点测量管内倾斜角，推算水平位移累积量，是常规深层水平位移监测的标准手持测量仪器。固定式测斜仪为自动化方案，静力水准仪和收敛计用途不同。
 acq.instrument,acq.instrument.powerOrder,测斜仪开关,请选择正确的测斜仪开机顺序。,singleChoice,1,connectBeforePower,,,,开工时应先连接探头接口，再打开读数仪电源。
-acq.instrument,acq.instrument.interval,测斜管下方间距设置,请输入测斜管下方间距。,fillValue,1,0.5,,,m,本次测量间距应设置为0.5m。
+acq.instrument,acq.instrument.interval,测量间距,请选择测斜管上下移动的间距。,singleChoice,1,0.5,,,m,本次上下移动间距应设置为0.5m。
 acq.instrument,acq.instrument.cable,线材选择,请选择与读数仪测量接口匹配的线材。,singleChoice,1,A,,,,滑动式测斜仪探头接口应选择5针圆形航空插头线。
 acq.instrument,acq.instrument.area,测孔参数设置-测区编号,请输入测区编号。,fillValue,1,03,,,,本次任务测区编号为03。
 acq.instrument,acq.instrument.hole,测孔参数设置-孔号,请输入测孔孔号。,fillValue,1,06,,,,本次任务测孔孔号为06。
@@ -65,10 +65,10 @@ data.report,data.report.rate18,18.0m 变化速率,请输入第8期18.0m深度的
 data.report,data.report.shapeReason,曲线形态成因,请选择本期深度-位移曲线的主要形态成因。,singleChoice,3,shapeExcavationUnloading,,,,本期曲线中部位移明显增大，符合开挖卸荷导致中部土压力释放，墙体向坑内鼓出的变形特征。
 data.report,data.report.warningLevel,预警等级,请选择本期监测结果对应的预警等级。,singleChoice,2,yellowWarning,,,,本期10.0m累计位移达到36.00mm，超过控制值50mm的70%黄色预警阈值35mm，因此应判定为黄色预警。
 data.analysis,data.analysis.maxDepth,累计位移增长最大的深度,观察多期曲线，判断累计位移增长幅度最大的深度。,singleChoice,2,10m,,,,第8期曲线中10m附近累计位移最大且多期增长最明显，应判断累计位移增长最大深度为10m。
-data.analysis,data.analysis.accelStart,位移加速起始期次,哪一期开始出现明显位移加速？,singleChoice,3,第7期,,,,对比多期曲线斜率，第7期开始10m附近累计位移增幅明显扩大，说明位移从第7期开始加速。
-data.analysis,data.analysis.maxRecentZone,近3期增量最大深度区段,对比第6期至第8期，位移增量最大的深度区段是？,singleChoice,2,5~10m,,,,第6期至第8期中5~10m区段曲线外鼓和增量最明显，应判定为近3期增量最大区段。
-data.analysis,data.analysis.warningDepths,超过预警值的深度,第8期中哪些深度的累计位移超过黄色预警值35mm？,singleChoice,3,9.5m、10.0m、10.5m,,,,黄色预警阈值为50mm控制值的70%，即35mm。第8期9.5m为35.50mm，10.0m为36.00mm，10.5m为35.20mm，均超过或达到预警判断范围。
+data.analysis,data.analysis.accelStart,位移加速起始期次,哪一期开始出现明显位移加速？,singleChoice,4,第7期,,,,对比多期曲线斜率，第7期开始10m附近累计位移增幅明显扩大，说明位移从第7期开始加速。
+data.analysis,data.analysis.maxRecentZone,近3期增量最大深度区段,对比第6期至第8期，位移增量最大的深度区段是？,singleChoice,3,5~10m,,,,第6期至第8期中5~10m区段曲线外鼓和增量最明显，应判定为近3期增量最大区段。
+data.analysis,data.analysis.warningDepths,超过预警值的深度,第8期中哪些深度的累计位移超过黄色预警值35mm？,singleChoice,4,9.5m、10.0m、10.5m,,,,黄色预警阈值为50mm控制值的70%，即35mm。第8期9.5m为35.50mm，10.0m为36.00mm，10.5m为35.20mm，均超过或达到预警判断范围。
 data.analysis,data.analysis.trend10,10m近3期发展趋势,10m深度处近3期累计位移趋势判定。,singleChoice,2,加速增大,,,,10m累计位移第6期为21.00mm，第7期为27.20mm，第8期为36.00mm，近3期增量持续扩大，应判定为加速增大。
-data.analysis,data.analysis.action,应采取的处理措施,结合预警等级和趋势，判断应采取的措施。,singleChoice,3,加密监测频次并通知设计单位复核,,,,当前累计位移超过黄色预警阈值且10m附近趋势加速，应加密监测频次并通知设计单位复核。
-data.analysis,data.analysis.nextInterval,下期监测间隔建议,参照GB50497，下一期监测间隔应如何调整？,singleChoice,2,缩短至3天,,,,已达到黄色预警并存在加速趋势，下期监测间隔不宜维持7天，应缩短至3天以加强跟踪。
+data.analysis,data.analysis.action,应采取的处理措施,结合预警等级和趋势，判断应采取的措施。,singleChoice,4,加密监测频次并通知设计单位复核,,,,当前累计位移超过黄色预警阈值且10m附近趋势加速，应加密监测频次并通知设计单位复核。
+data.analysis,data.analysis.nextInterval,下期监测间隔建议,参照GB50497，下一期监测间隔应如何调整？,singleChoice,3,缩短至3天,,,,已达到黄色预警并存在加速趋势，下期监测间隔不宜维持7天，应缩短至3天以加强跟踪。
 

@@ -1,13 +1,12 @@
-import React, { useMemo } from 'react';
-import { TechnicalCard, Button } from './Common';
-import ReactECharts from 'echarts-for-react';
+import React from 'react';
+import { Button } from './Common';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { scoringConfigs } from '../data/scoringConfig';
-import { 
-  User, Calendar, Clock, Award, BarChart3, ChevronDown, 
+import {
+  User, Calendar, Clock, Award, ChevronDown,
   ChevronRight, CheckCircle2, XCircle, FileText, Printer, 
-  Download, Home, ShieldCheck, Zap, Activity, AlertTriangle
+  Download, Home
 } from 'lucide-react';
 
 // --- Types for the Report ---
@@ -111,8 +110,8 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
   const calculateModuleMaxScore = (stepIds: string[]) => {
     const maxScores: Record<string, number> = {
       'prep.tech': 3, 'prep.material': 2, 'prep.assembly': 4, 'prep.cage': 4, 'prep.inspection': 4, '4.2.1-1': 3, '4.2.1-2-1': 2, '4.2.1-2-2': 4, '4.2.1-2-3': 4, '4.2.1-3-1': 4, '4.2.1-3-2': 4, '4.2.1-4': 4,
-      '4.2.2-1': 4, '4.2.2-2': 26,
-      '4.2.3-1': 5, '4.2.3-2': 16, '4.2.3-3': 17
+      '4.2.2-1': 6, '4.2.2-2': 26,
+      '4.2.3-1': 5, '4.2.3-2': 16, '4.2.3-3': 22
     };
     return stepIds.reduce((acc, id) => acc + (maxScores[id] || 0), 0);
   };
@@ -193,10 +192,10 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
         (m1Score / m1Max) || 0,
         ((getStep('4.2.1-3-1').score || 0) + (getStep('4.2.1-3-2').score || 0)) / 8 || 0,
         (getStep('4.2.2-2').totalScore / 26) || 0,
-        (getStep('4.2.2-1').score / 4) || 0,
+        (getStep('4.2.2-1').score / 6) || 0,
         (getStep('4.2.3-2').totalScore / 15) || 0,
         (getStep('4.2.3-1').totalScore / 5) || 0,
-        (getStep('4.2.3-3').totalScore / 20) || 0
+        (getStep('4.2.3-3').totalScore / 22) || 0
       ]
     }
   };
@@ -235,29 +234,6 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
       </div>
     </div>
   );
-};
-
-const RadarChart: React.FC<{ dimensions: string[]; values: number[] }> = ({ dimensions, values }) => {
-  const option = {
-    radar: {
-      indicator: dimensions.map(d => ({ name: d, max: 1 })),
-      splitArea: { show: false },
-      axisLine: { lineStyle: { color: '#141414', opacity: 0.2 } },
-      splitLine: { lineStyle: { color: '#141414', opacity: 0.1 } }
-    },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: values,
-        name: '能力评估',
-        areaStyle: { color: 'rgba(20, 20, 20, 0.1)' },
-        lineStyle: { color: '#141414', width: 2 },
-        itemStyle: { color: '#141414' }
-      }]
-    }]
-  };
-
-  return <ReactECharts option={option} style={{ height: '300px' }} />;
 };
 
 const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
@@ -340,27 +316,6 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
 // --- Main Report Component ---
 
 export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({ data, onBack }) => {
-  const strengths = useMemo(() => {
-    return data.radar.dimensions.filter((_, i) => data.radar.values[i] >= 0.8);
-  }, [data]);
-
-  const weaknesses = useMemo(() => {
-    return data.radar.dimensions.filter((_, i) => data.radar.values[i] < 0.7);
-  }, [data]);
-
-  const getSuggestion = (dim: string) => {
-    const suggestions: Record<string, string> = {
-      "安装规范知识": "复习监测管管材选型、连接方式和钢筋笼绑扎规范",
-      "验收检测能力": "加强管口验收标准和通畅性测试曲线判读的学习",
-      "设备操作能力": "重点掌握读数仪参数设置、正反测操作流程",
-      "数据采集规范": "复习测区/孔号选择规范和设备连接操作要求",
-      "数据分析能力": "复习日报表变化速率计算方法和分析结论撰写",
-      "异常诊断能力": "重点掌握校验和限差判断标准和异常原因分析",
-      "预警决策能力": "重点学习GB 50497表8.0.4预警值标准和处理措施选择"
-    };
-    return suggestions[dim] || "继续保持学习";
-  };
-
   return (
     <div className="min-h-screen bg-industrial-bg/20 py-12 px-4 print:bg-white print:p-0">
       <div className="max-w-4xl mx-auto space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
@@ -385,61 +340,6 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
           <ScoreCircle score={data.exam.totalScore} maxScore={data.exam.totalMaxScore} />
         </div>
 
-        {/* Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {data.modules.map(m => {
-            const pct = (m.score / m.maxScore) * 100;
-            return (
-              <div key={m.id} className="p-4 border border-industrial-fg/10 bg-industrial-bg/5 space-y-2">
-                <h3 className="text-[10px] font-bold uppercase opacity-60 truncate">{m.name}</h3>
-                <div className="flex items-end justify-between">
-                  <span className="text-xl font-bold font-mono">{m.score}<span className="text-[10px] opacity-40 font-normal">/{m.maxScore}</span></span>
-                  <span className="text-[10px] font-mono">{pct.toFixed(0)}%</span>
-                </div>
-                <div className="h-1.5 bg-industrial-bg/10 relative">
-                  <div className="absolute inset-y-0 left-0 bg-industrial-fg" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Radar & Analysis */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center border-y border-industrial-fg/10 py-8">
-          <div>
-            <h3 className="technical-label mb-4">能力雷达图</h3>
-            <RadarChart dimensions={data.radar.dimensions} values={data.radar.values} />
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-green-600 flex items-center">
-                <CheckCircle2 size={14} className="mr-2" /> 优势能力
-              </h4>
-              <div className="space-y-1">
-                {strengths.map(s => (
-                  <div key={s} className="text-[11px] flex items-center space-x-2">
-                    <Zap size={10} className="text-yellow-500" />
-                    <span>{s} 掌握扎实</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-red-500 flex items-center">
-                <AlertTriangle size={14} className="mr-2" /> 薄弱环节
-              </h4>
-              <div className="space-y-2">
-                {weaknesses.map(w => (
-                  <div key={w} className="p-2 bg-red-50 border-l-2 border-red-500">
-                    <p className="text-[11px] font-bold">{w} 需加强</p>
-                    <p className="text-[10px] opacity-60">建议: {getSuggestion(w)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Detailed Breakdown */}
         <div className="space-y-6">
           <h3 className="technical-label">得分明细</h3>
@@ -458,16 +358,6 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
           </div>
         </div>
 
-        {/* Conclusion */}
-        <div className="p-6 bg-industrial-bg/5 border border-industrial-fg/10 space-y-4">
-          <h3 className="technical-label">综合评语</h3>
-          <p className="text-xs leading-relaxed opacity-80">
-            该生对监测管安装埋设和数据采集的基础操作掌握较好，但在数据处理分析和预警判断方面仍有提升空间。
-            {weaknesses.length > 0 && `特别是在${weaknesses.join('、')}等环节，建议后续加强练习。`}
-            整体表现{data.exam.totalScore >= 75 ? '良好' : '合格'}，具备基本的现场监测能力。
-          </p>
-        </div>
-
         {/* Footer Actions */}
         <div className="flex justify-center space-x-4 pt-8 border-t border-industrial-fg/10 print:hidden">
           <Button variant="secondary" onClick={() => window.print()} className="flex items-center space-x-2">
@@ -484,14 +374,6 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
           </Button>
         </div>
 
-        {/* System Status (Footer) */}
-        <div className="flex justify-between items-center pt-8 text-[9px] font-mono opacity-30 uppercase tracking-widest">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1"><ShieldCheck size={10} /><span>Secured</span></div>
-            <div className="flex items-center space-x-1"><Activity size={10} /><span>Verified</span></div>
-          </div>
-          <span>Report ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
-        </div>
       </div>
     </div>
   );
