@@ -14,7 +14,7 @@ import {
   ReportCompilation,
   MultiPeriodAnalysis
 } from './components/steps';
-import { ReportPage, generateMockReport } from './components/ReportPage';
+import { ReportPage, generateMockReport, type ReportVariant } from './components/ReportPage';
 import { StartPage } from './components/StartPage';
 import { FrameworkGuide } from './components/FrameworkGuide';
 import { MultiPeriodChart } from './components/MultiPeriodChart';
@@ -32,6 +32,7 @@ function AppInner() {
   const [currentStep, setCurrentStep] = useState<StepId>('1');
   const [showReport, setShowReport] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
+  const [reportVariant, setReportVariant] = useState<ReportVariant>('mistakesOnly');
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
@@ -80,11 +81,12 @@ function AppInner() {
   const [stepData, setStepData] = useState<Record<string, any>>(() => loadTrainingSession().results);
 
   const handleFinish = () => {
+    setReportVariant('mistakesOnly');
     setReportData(generateMockReport("张三", stepData));
     setShowReport(true);
   };
 
-  const handleDevSampleAnswerSheet = () => {
+  const handleDevSampleAnswerSheet = (variant: ReportVariant) => {
     const sampleResults = createDevSampleStepResults();
     const sampleCompletedSteps = Object.keys(sampleResults) as StepId[];
     const session = loadTrainingSession();
@@ -102,6 +104,7 @@ function AppInner() {
     setCompletedSteps(new Set(sampleCompletedSteps));
     setAllUnlocked(true);
     setShowDevPanel(false);
+    setReportVariant(variant);
     setReportData(generateMockReport("开发示例学生", sampleResults));
     setShowReport(true);
   };
@@ -156,7 +159,7 @@ function AppInner() {
   }
 
   if (showReport && reportData) {
-    return <ReportPage data={reportData} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
+    return <ReportPage data={reportData} variant={reportVariant} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
   }
 
   if (showTransition) {
@@ -357,7 +360,7 @@ function AppInner() {
             <div className="space-y-1">
               <div className="font-bold text-sm">是否确认提交本次实操？</div>
               <div className="opacity-70 leading-relaxed">
-                提交后系统将生成实操成绩报告，您的填写内容将不可更改。请确认所有步骤的答案填写无误。
+                提交后系统将生成实操成绩报告，答案将不可修改。请确认所有步骤答案无误。
               </div>
             </div>
           </div>
@@ -403,10 +406,16 @@ function AppInner() {
               查看评估报告
             </button>
             <button
-              onClick={handleDevSampleAnswerSheet}
+              onClick={() => handleDevSampleAnswerSheet('full')}
+              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
+            >
+              典型答卷-完整
+            </button>
+            <button
+              onClick={() => handleDevSampleAnswerSheet('mistakesOnly')}
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-green-300 bg-green-50 hover:bg-green-100 transition-colors text-green-700"
             >
-              典型评分答卷
+              典型答卷-错题
             </button>
             <button
               onClick={() => { clearTrainingSession(); setStepData({}); setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}

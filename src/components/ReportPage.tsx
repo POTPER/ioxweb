@@ -1,12 +1,9 @@
 import React from 'react';
-import { Button } from './Common';
 import { cn } from '../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
 import { scoringConfigs } from '../data/scoringConfig';
 import {
-  User, Calendar, Clock, Award, ChevronDown,
-  ChevronRight, CheckCircle2, XCircle, FileText, Printer, 
-  Download, Home
+  User, Calendar, Clock, Award,
+  CheckCircle2, XCircle, FileText, Home
 } from 'lucide-react';
 
 // --- Types for the Report ---
@@ -64,6 +61,8 @@ export interface ReportData {
     values: number[];
   };
 }
+
+export type ReportVariant = 'full' | 'mistakesOnly';
 
 // --- Mock Data Generator (for demonstration) ---
 export const generateMockReport = (studentName: string, stepData?: Record<string, any>): ReportData => {
@@ -236,22 +235,22 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
   );
 };
 
-const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+const formatItemScore = (score: number, maxScore: number) => (
+  score === maxScore ? `得分 ${score} 分` : `得分 ${score} / ${maxScore} 分`
+);
+
+const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ step, variant }) => {
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
   const questionCount = step.questions.length;
 
   return (
     <div className="border border-industrial-fg/10 bg-white">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-industrial-bg/5 transition-colors"
-      >
+      <div className="w-full flex items-center justify-between px-3 py-2">
         <div className="flex-1 grid grid-cols-[1fr_auto_auto] items-center gap-3">
           <div className="min-w-0 flex items-baseline gap-2">
             <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
-            <div className="text-[9px] font-mono opacity-45 whitespace-nowrap">共 {questionCount} 题 · 满分 {step.maxScore} 分</div>
+            <div className="text-[9px] font-mono opacity-45 whitespace-nowrap">共 {questionCount} 项</div>
           </div>
           <div className="w-28 h-1 bg-industrial-bg/10 relative">
             <div 
@@ -262,60 +261,62 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
           <div className={cn(
             "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
             isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
-          )}>
-            {step.score}/{step.maxScore}
+        )}>
+            得分 {step.score} / {step.maxScore} 分
           </div>
         </div>
-        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-      </button>
+      </div>
       
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-industrial-fg/10 bg-industrial-bg/5"
-          >
+      <div className="border-t border-industrial-fg/10 bg-industrial-bg/5">
             <div className="p-2 space-y-2">
-              {step.questions.map((q, index) => (
-                <div key={q.id} className="bg-white border border-industrial-fg/10 text-[10px]">
-                  <div className="flex items-center justify-between border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20">
-                    <div className="flex items-center space-x-2">
-                      {q.correct ? <CheckCircle2 size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-500" />}
-                      <span className="font-bold">第 {index + 1} 题 · {q.label}</span>
-                    </div>
-                    <span className="font-mono font-bold">{q.score}/{q.maxScore}</span>
-                  </div>
-                  <div className="p-2 space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                      <div className="border border-industrial-fg/10 bg-industrial-bg/10 px-2 py-1.5">
-                        <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">你的答案</div>
-                        <div className={cn("font-bold", q.correct ? "text-green-600" : "text-red-500")}>{q.userAnswer || '未作答'}</div>
+              {step.questions.map((q) => {
+                const showDetail = variant === 'full' || !q.correct;
+
+                return (
+                  <div key={q.id} className="bg-white border border-industrial-fg/10 text-[10px]">
+                    <div className={cn(
+                      "flex items-center justify-between gap-2 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
+                      !showDetail && "border-b-0"
+                    )}>
+                      <div className="flex min-w-0 items-center space-x-2">
+                        {q.correct ? <CheckCircle2 size={12} className="shrink-0 text-green-500" /> : <XCircle size={12} className="shrink-0 text-red-500" />}
+                        <span className="truncate font-bold">{q.label}</span>
+                        <span className="shrink-0 font-mono opacity-60">｜{formatItemScore(q.score, q.maxScore)}</span>
                       </div>
-                      <div className="border border-green-200 bg-green-50 px-2 py-1.5">
-                        <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50">标准答案</div>
-                        <div className="font-bold text-green-700">{q.correctAnswer || '详见评分规则'}</div>
+                      {variant === 'mistakesOnly' && q.correct && (
+                        <span className="min-w-0 flex-1 truncate text-right font-mono opacity-60">你的答案：{q.userAnswer || '未作答'}</span>
+                      )}
+                    </div>
+                    {showDetail && (
+                      <div className="p-2 space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                          <div className="border border-industrial-fg/10 bg-industrial-bg/10 px-2 py-1.5">
+                            <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">你的答案</div>
+                            <div className={cn("font-bold", q.correct ? "text-green-600" : "text-red-500")}>{q.userAnswer || '未作答'}</div>
+                          </div>
+                          <div className="border border-green-200 bg-green-50 px-2 py-1.5">
+                            <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50">标准答案</div>
+                            <div className="font-bold text-green-700">{q.correctAnswer || '详见评分规则'}</div>
+                          </div>
+                        </div>
+                        <div className="border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
+                          <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">解析</div>
+                          <div className="opacity-75">{q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。'}</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
-                      <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">解析</div>
-                      <div className="opacity-75">{q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。'}</div>
-                    </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 };
 
 // --- Main Report Component ---
 
-export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({ data, onBack }) => {
+export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; variant?: ReportVariant }> = ({ data, variant = 'mistakesOnly' }) => {
   return (
     <div className="min-h-screen bg-industrial-bg/20 py-12 px-4 print:bg-white print:p-0">
       <div className="max-w-4xl mx-auto space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
@@ -343,35 +344,11 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
         {/* Detailed Breakdown */}
         <div className="space-y-6">
           <h3 className="technical-label">得分明细</h3>
-          <div className="space-y-4">
-            {data.modules.map(m => (
-              <div key={m.id} className="space-y-2">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[11px] font-bold uppercase tracking-widest">{m.name}</span>
-                  <span className="text-[10px] font-mono opacity-40">{m.score}/{m.maxScore}</span>
-                </div>
-                <div className="space-y-1">
-                  {m.steps.map(s => <StepDetail key={s.id} step={s} />)}
-                </div>
-              </div>
+          <div className="space-y-1">
+            {data.modules.flatMap(module => module.steps).map(step => (
+              <StepDetail key={step.id} step={step} variant={variant} />
             ))}
           </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex justify-center space-x-4 pt-8 border-t border-industrial-fg/10 print:hidden">
-          <Button variant="secondary" onClick={() => window.print()} className="flex items-center space-x-2">
-            <Printer size={14} />
-            <span>打印报告</span>
-          </Button>
-          <Button variant="secondary" className="flex items-center space-x-2">
-            <Download size={14} />
-            <span>导出 PDF</span>
-          </Button>
-          <Button onClick={onBack} className="flex items-center space-x-2">
-            <Home size={14} />
-            <span>返回首页</span>
-          </Button>
         </div>
 
       </div>
