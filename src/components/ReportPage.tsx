@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useRef, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { cn } from '../lib/utils';
 import { scoringConfigs } from '../data/scoringConfig';
 import {
   User, Calendar, Clock, Award,
   CheckCircle2, XCircle, FileText, Home
 } from 'lucide-react';
+import { RequirementsOverlay } from './RequirementsOverlay';
 
 // --- Types for the Report ---
 
@@ -235,9 +236,7 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
   );
 };
 
-const formatItemScore = (score: number, maxScore: number) => (
-  score === maxScore ? `得分 ${score} 分` : `得分 ${score} / ${maxScore} 分`
-);
+const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScore}分`;
 
 const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ step, variant }) => {
   const percentage = (step.score / step.maxScore) * 100;
@@ -271,37 +270,50 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ st
             <div className="p-2 space-y-2">
               {step.questions.map((q) => {
                 const showDetail = variant === 'full' || !q.correct;
+                const userAnswerText = q.userAnswer || '未作答';
+                const correctAnswerText = q.correctAnswer || '详见评分规则';
+                const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
 
                 return (
                   <div key={q.id} className="bg-white border border-industrial-fg/10 text-[10px]">
+                    {/* 标题栏：显示完整答案，节约空间 */}
                     <div className={cn(
-                      "flex items-center justify-between gap-2 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
+                      "flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
                       !showDetail && "border-b-0"
                     )}>
-                      <div className="flex min-w-0 items-center space-x-2">
+                      {/* 左侧：图标 + 题目名称 - 固定宽度 */}
+                      <div className="flex items-center space-x-2 w-[120px] md:w-[160px] shrink-0">
                         {q.correct ? <CheckCircle2 size={12} className="shrink-0 text-green-500" /> : <XCircle size={12} className="shrink-0 text-red-500" />}
                         <span className="truncate font-bold">{q.label}</span>
-                        <span className="shrink-0 font-mono opacity-60">｜{formatItemScore(q.score, q.maxScore)}</span>
                       </div>
-                      {variant === 'mistakesOnly' && q.correct && (
-                        <span className="min-w-0 flex-1 truncate text-right font-mono opacity-60">你的答案：{q.userAnswer || '未作答'}</span>
-                      )}
+                      
+                      {/* 分隔符 */}
+                      <span className="font-mono opacity-30 shrink-0">|</span>
+                      
+                      {/* 中间：你的答案 - 完整显示，允许换行 */}
+                      <span className="min-w-0 flex-1 font-mono opacity-60 break-words">
+                        你的答案：{userAnswerText}
+                      </span>
+                      
+                      {/* 分隔符 */}
+                      <span className="font-mono opacity-30 shrink-0">|</span>
+                      
+                      {/* 右侧：得分 - 固定宽度，永不被挤压 */}
+                      <span className="w-[60px] shrink-0 text-right font-mono opacity-60">
+                        {formatItemScore(q.score, q.maxScore)}
+                      </span>
                     </div>
+                    
+                    {/* 展开区域：只显示标准答案和解析 */}
                     {showDetail && (
-                      <div className="p-2 space-y-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                          <div className="border border-industrial-fg/10 bg-industrial-bg/10 px-2 py-1.5">
-                            <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">你的答案</div>
-                            <div className={cn("font-bold", q.correct ? "text-green-600" : "text-red-500")}>{q.userAnswer || '未作答'}</div>
-                          </div>
-                          <div className="border border-green-200 bg-green-50 px-2 py-1.5">
-                            <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50">标准答案</div>
-                            <div className="font-bold text-green-700">{q.correctAnswer || '详见评分规则'}</div>
-                          </div>
+                      <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-2">
+                        <div className="border border-green-200 bg-green-50 px-2 py-1.5">
+                          <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50 mb-1">标准答案</div>
+                          <div className="font-bold text-green-700 break-words">{correctAnswerText}</div>
                         </div>
                         <div className="border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
-                          <div className="text-[8px] font-bold uppercase tracking-widest opacity-40">解析</div>
-                          <div className="opacity-75">{q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。'}</div>
+                          <div className="text-[8px] font-bold uppercase tracking-widest opacity-40 mb-1">解析</div>
+                          <div className="opacity-75 break-words">{analysisText}</div>
                         </div>
                       </div>
                     )}
@@ -317,6 +329,31 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ st
 // --- Main Report Component ---
 
 export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; variant?: ReportVariant }> = ({ data, variant = 'mistakesOnly' }) => {
+  const [showRequirements, setShowRequirements] = useState(false);
+  const [reqVisible, setReqVisible] = useState(true);
+  const reqPanelRef = useRef<HTMLDivElement>(null);
+  const reqDragOffset = useRef({ x: 0, y: 0 });
+  const [reqPos, setReqPos] = useState({ right: 20, bottom: 20 });
+
+  const handleReqDragStart = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    const el = reqPanelRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    reqDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const onMove = (ev: MouseEvent) => {
+      const x = ev.clientX - reqDragOffset.current.x;
+      const y = ev.clientY - reqDragOffset.current.y;
+      setReqPos({ right: window.innerWidth - x - rect.width, bottom: window.innerHeight - y - rect.height });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
   return (
     <div className="min-h-screen bg-industrial-bg/20 py-12 px-4 print:bg-white print:p-0">
       <div className="max-w-4xl mx-auto space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
@@ -328,7 +365,10 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
               <div className="p-2 bg-industrial-fg text-industrial-bg">
                 <FileText size={24} />
               </div>
-              <h1 className="text-2xl font-bold uppercase tracking-tighter">深基坑深层水平位移监测实训 — 成绩报告</h1>
+              <div>
+                <h1 className="text-2xl font-bold uppercase tracking-tighter">成绩报告</h1>
+                <div className="mt-1 text-xs font-bold tracking-wider opacity-60">深基坑深层水平位移监测实训</div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[11px] font-mono">
               <div className="flex items-center space-x-2"><User size={12} className="opacity-40" /><span>学生姓名: {data.student.name}</span></div>
@@ -352,6 +392,25 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
         </div>
 
       </div>
+
+      {/* Requirements Overlay */}
+      {showRequirements && <RequirementsOverlay onClose={() => setShowRequirements(false)} defaultPage="score-report" />}
+
+      {/* REQ Floating Button */}
+      {reqVisible && <div
+        ref={reqPanelRef}
+        className="fixed z-[200] flex flex-col items-end print:hidden"
+        style={{ right: reqPos.right, bottom: reqPos.bottom }}
+      >
+        <button
+          onMouseDown={handleReqDragStart}
+          onClick={() => setShowRequirements(true)}
+          className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(37,99,235,0.3)] cursor-move select-none"
+          title="需求文档 — 拖拽移动"
+        >
+          REQ
+        </button>
+      </div>}
     </div>
   );
 };
