@@ -12,7 +12,7 @@ export { type RequirementPage } from '../data/requirementsData';
 
 export const RequirementsOverlay: React.FC<RequirementsOverlayProps> = ({ onClose, defaultPage = 'score-report' }) => {
   const [currentPage, setCurrentPage] = useState<RequirementPage>(defaultPage);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'elements', 'features', 'modules']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['section-0', 'section-1', 'section-2', 'section-3']));
   const [showPageList, setShowPageList] = useState(false);
 
   // 当 defaultPage 改变时更新当前页面
@@ -111,18 +111,6 @@ export const RequirementsOverlay: React.FC<RequirementsOverlayProps> = ({ onClos
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="border-t-2 border-industrial-fg px-6 py-3 bg-industrial-bg/5 flex items-center justify-between">
-          <div className="text-[10px] font-mono opacity-40">
-            文档路径: <code className="bg-white px-1 py-0.5">{currentConfig.docPath}</code>
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 border-industrial-fg bg-industrial-fg text-industrial-bg hover:bg-industrial-bg hover:text-industrial-fg transition-all"
-          >
-            关闭
-          </button>
-        </div>
       </div>
     </div>
   );

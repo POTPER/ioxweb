@@ -241,21 +241,13 @@ const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScor
 const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ step, variant }) => {
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
-  const questionCount = step.questions.length;
 
   return (
     <div className="border border-industrial-fg/10 bg-white">
       <div className="w-full flex items-center justify-between px-3 py-2">
-        <div className="flex-1 grid grid-cols-[1fr_auto_auto] items-center gap-3">
-          <div className="min-w-0 flex items-baseline gap-2">
+        <div className="flex-1 grid grid-cols-[1fr_auto] items-center gap-3">
+          <div className="min-w-0">
             <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
-            <div className="text-[9px] font-mono opacity-45 whitespace-nowrap">共 {questionCount} 项</div>
-          </div>
-          <div className="w-28 h-1 bg-industrial-bg/10 relative">
-            <div 
-              className={cn("absolute inset-y-0 left-0 transition-all duration-500", isWeak ? "bg-red-500" : "bg-industrial-fg")}
-              style={{ width: `${percentage}%` }}
-            />
           </div>
           <div className={cn(
             "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",

@@ -21,47 +21,52 @@ export interface RequirementPageData {
   id: RequirementPage;
   title: string;
   subtitle: string;
-  docPath: string;
   content: string; // 完整的 Markdown 内容
   sections: RequirementSection[];
 }
 
 // CSV 解析辅助函数
 function parseCSV(csv: string): string[][] {
-  const lines = csv.trim().split('\n');
   const result: string[][] = [];
-  
-  for (const line of lines) {
-    const row: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // 转义的引号
-          current += '"';
-          i++;
-        } else {
-          // 切换引号状态
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        // 字段分隔符
-        row.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
+  let row: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  const pushField = () => {
     row.push(current);
-    result.push(row);
+    current = '';
+  };
+
+  const pushRow = () => {
+    if (row.length > 0 || current.length > 0) {
+      pushField();
+      result.push(row);
+      row = [];
+    }
+  };
+
+  for (let i = 0; i < csv.length; i++) {
+    const char = csv[i];
+    const nextChar = csv[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      pushField();
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') i++;
+      pushRow();
+    } else {
+      current += char;
+    }
   }
-  
+
+  pushRow();
   return result;
 }
 
@@ -72,6 +77,7 @@ function parseMarkdownSections(markdown: string): RequirementSection[] {
   
   let currentSection: RequirementSection | null = null;
   let currentContent: string[] = [];
+  let sectionIndex = 0;
   
   for (const line of lines) {
     // 检测二级标题（## 标题）
@@ -85,10 +91,11 @@ function parseMarkdownSections(markdown: string): RequirementSection[] {
       // 创建新章节
       const title = line.substring(3).trim();
       currentSection = {
-        id: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        id: `section-${sectionIndex}`,
         title: title,
         content: '',
       };
+      sectionIndex++;
       currentContent = [];
     } else if (currentSection) {
       // 添加内容到当前章节
@@ -116,14 +123,12 @@ function loadRequirementsData(): Record<RequirementPage, RequirementPageData> {
     const pageId = row[0] as RequirementPage;
     const title = row[1];
     const subtitle = row[2];
-    const docPath = row[3];
-    const content = row[4] || '';
+    const content = row[3] || '';
     
     result[pageId] = {
       id: pageId,
       title,
       subtitle,
-      docPath,
       content,
       sections: parseMarkdownSections(content),
     };
