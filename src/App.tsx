@@ -43,7 +43,7 @@ function AppInner() {
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
   const [currentRequirementPage, setCurrentRequirementPage] = useState<RequirementPage>('training-steps');
-  const [reqVisible, setReqVisible] = useState(true);
+  const [reqVisible, setReqVisible] = useState(false);
   const reqPanelRef = useRef<HTMLDivElement>(null);
   const reqDragOffset = useRef({ x: 0, y: 0 });
   const [reqPos, setReqPos] = useState({ right: 80, bottom: 20 });

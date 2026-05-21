@@ -238,13 +238,47 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
 
 const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScore}分`;
 
-const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ step, variant }) => {
+const MaskCallout: React.FC<{
+  label: string;
+  boxClassName?: string;
+  lineClassName?: string;
+  labelClassName?: string;
+}> = ({ label, boxClassName, lineClassName, labelClassName }) => (
+  <div className="pointer-events-none absolute inset-0 z-30 print:hidden">
+    <div
+      className={cn(
+        "absolute rounded-sm border border-dashed border-blue-600 bg-blue-500/5",
+        boxClassName
+      )}
+    />
+    <div className={cn("absolute border-blue-600", lineClassName)} />
+    <div
+      className={cn(
+        "absolute border border-blue-600 bg-white px-2 py-1 text-[9px] font-bold text-blue-700 shadow-[2px_2px_0px_0px_rgba(37,99,235,0.25)]",
+        labelClassName
+      )}
+    >
+      {label}
+    </div>
+  </div>
+);
+
+const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant; showMask?: boolean; maskStepIndex?: number }> = ({ step, variant, showMask, maskStepIndex = 0 }) => {
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
+  const showStepMask = showMask && maskStepIndex === 0;
 
   return (
     <div className="border border-industrial-fg/10 bg-white">
-      <div className="w-full flex items-center justify-between px-3 py-2">
+      <div className="relative w-full flex items-center justify-between px-3 py-2">
+        {showStepMask && (
+          <MaskCallout
+            label="实训步骤名称 + 步骤总得分"
+            boxClassName="inset-1"
+            lineClassName="-right-12 top-1/2 -translate-y-1/2 w-12 border-t"
+            labelClassName="-right-36 top-1/2 -translate-y-1/2"
+          />
+        )}
         <div className="flex-1 grid grid-cols-[1fr_auto] items-center gap-3">
           <div className="min-w-0">
             <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
@@ -260,19 +294,28 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ st
       
       <div className="border-t border-industrial-fg/10 bg-industrial-bg/5">
             <div className="p-2 space-y-2">
-              {step.questions.map((q) => {
+              {step.questions.map((q, questionIndex) => {
                 const showDetail = variant === 'full' || !q.correct;
                 const userAnswerText = q.userAnswer || '未作答';
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
+                const showQuestionMask = showStepMask && questionIndex < 2;
 
                 return (
-                  <div key={q.id} className="bg-white border border-industrial-fg/10 text-[10px]">
+                  <div key={q.id} className="relative bg-white border border-industrial-fg/10 text-[10px]">
                     {/* 标题栏：显示完整答案，节约空间 */}
                     <div className={cn(
-                      "flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
+                      "relative flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
                       !showDetail && "border-b-0"
                     )}>
+                      {showQuestionMask && (
+                        <MaskCallout
+                          label={q.correct ? "正确图标 + 任务名称 + 选择答案 + 任务得分" : "错误图标 + 任务名称 + 选择答案 + 任务得分"}
+                          boxClassName="inset-0.5"
+                          lineClassName={questionIndex === 0 ? "-left-14 top-1/2 -translate-y-1/2 w-14 border-t" : "-right-14 top-1/2 -translate-y-1/2 w-14 border-t"}
+                          labelClassName={questionIndex === 0 ? "-left-44 top-1/2 -translate-y-1/2" : "-right-44 top-1/2 -translate-y-1/2"}
+                        />
+                      )}
                       {/* 左侧：图标 + 题目名称 - 固定宽度 */}
                       <div className="flex items-center space-x-2 w-[120px] md:w-[160px] shrink-0">
                         {q.correct ? <CheckCircle2 size={12} className="shrink-0 text-green-500" /> : <XCircle size={12} className="shrink-0 text-red-500" />}
@@ -298,12 +341,28 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ st
                     
                     {/* 展开区域：只显示标准答案和解析 */}
                     {showDetail && (
-                      <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-2">
-                        <div className="border border-green-200 bg-green-50 px-2 py-1.5">
+                      <div className="relative grid grid-cols-1 gap-2 p-2 md:grid-cols-2">
+                        <div className="relative border border-green-200 bg-green-50 px-2 py-1.5">
+                          {showQuestionMask && !q.correct && (
+                            <MaskCallout
+                              label="标准答案"
+                              boxClassName="inset-0.5"
+                              lineClassName="-left-10 top-1/2 -translate-y-1/2 w-10 border-t"
+                              labelClassName="-left-24 top-1/2 -translate-y-1/2"
+                            />
+                          )}
                           <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50 mb-1">标准答案</div>
                           <div className="font-bold text-green-700 break-words">{correctAnswerText}</div>
                         </div>
-                        <div className="border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
+                        <div className="relative border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
+                          {showQuestionMask && !q.correct && (
+                            <MaskCallout
+                              label="解析"
+                              boxClassName="inset-0.5"
+                              lineClassName="-right-10 top-1/2 -translate-y-1/2 w-10 border-t"
+                              labelClassName="-right-20 top-1/2 -translate-y-1/2"
+                            />
+                          )}
                           <div className="text-[8px] font-bold uppercase tracking-widest opacity-40 mb-1">解析</div>
                           <div className="opacity-75 break-words">{analysisText}</div>
                         </div>
@@ -322,7 +381,8 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant }> = ({ st
 
 export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; variant?: ReportVariant }> = ({ data, variant = 'mistakesOnly' }) => {
   const [showRequirements, setShowRequirements] = useState(false);
-  const [reqVisible, setReqVisible] = useState(true);
+  const [showStructureMask, setShowStructureMask] = useState(false);
+  const [reqVisible, setReqVisible] = useState(false);
   const reqPanelRef = useRef<HTMLDivElement>(null);
   const reqDragOffset = useRef({ x: 0, y: 0 });
   const [reqPos, setReqPos] = useState({ right: 20, bottom: 20 });
@@ -351,7 +411,15 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
       <div className="max-w-4xl mx-auto space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-industrial-fg pb-8 gap-8">
+        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-industrial-fg pb-8 gap-8">
+          {showStructureMask && (
+            <MaskCallout
+              label="主标题、副标题、学生信息、总成绩"
+              boxClassName="inset-0"
+              lineClassName="-left-16 top-1/2 -translate-y-1/2 w-16 border-t"
+              labelClassName="-left-48 top-1/2 -translate-y-1/2"
+            />
+          )}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-industrial-fg text-industrial-bg">
@@ -377,8 +445,8 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
         <div className="space-y-6">
           <h3 className="technical-label">得分明细</h3>
           <div className="space-y-1">
-            {data.modules.flatMap(module => module.steps).map(step => (
-              <StepDetail key={step.id} step={step} variant={variant} />
+            {data.modules.flatMap(module => module.steps).map((step, index) => (
+              <StepDetail key={step.id} step={step} variant={variant} showMask={showStructureMask} maskStepIndex={index} />
             ))}
           </div>
         </div>
@@ -388,19 +456,22 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
       {/* Requirements Overlay */}
       {showRequirements && <RequirementsOverlay onClose={() => setShowRequirements(false)} defaultPage="score-report" />}
 
-      {/* REQ Floating Button */}
+      {/* MASK Floating Button */}
       {reqVisible && <div
         ref={reqPanelRef}
-        className="fixed z-[200] flex flex-col items-end print:hidden"
+        className="fixed z-[200] flex flex-col items-end gap-2 print:hidden"
         style={{ right: reqPos.right, bottom: reqPos.bottom }}
       >
         <button
           onMouseDown={handleReqDragStart}
-          onClick={() => setShowRequirements(true)}
-          className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(37,99,235,0.3)] cursor-move select-none"
-          title="需求文档 — 拖拽移动"
+          onClick={() => setShowStructureMask(v => !v)}
+          className={cn(
+            "w-12 h-9 flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(37,99,235,0.3)] cursor-move select-none",
+            showStructureMask ? "bg-blue-600 text-white" : "bg-white text-blue-700 border-2 border-blue-600"
+          )}
+          title="结构蒙版 — 拖拽移动"
         >
-          REQ
+          MASK
         </button>
       </div>}
     </div>
