@@ -1,6 +1,7 @@
-import React, { useState, useRef, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
+import React, { useState } from 'react';
 import { cn } from '../lib/utils';
-import { scoringConfigs } from '../data/scoringConfig';
+import { scoringConfigs, type StepScoringConfig } from '../data/scoringConfig';
+import { calculateStepScore } from '../lib/scoring';
 import {
   User, Calendar, Clock, Award,
   CheckCircle2, XCircle, FileText, Home
@@ -32,6 +33,7 @@ export interface StepResult {
   score: number;
   maxScore: number;
   questions: QuestionResult[];
+  unanswered?: boolean;
 }
 
 export interface ModuleResult {
@@ -63,13 +65,9 @@ export interface ReportData {
   };
 }
 
-export type ReportVariant = 'full' | 'mistakesOnly';
-
 // --- Mock Data Generator (for demonstration) ---
 export const generateMockReport = (studentName: string, stepData?: Record<string, any>): ReportData => {
-  const stepAliases = Object.fromEntries(
-    Object.values(scoringConfigs).map(config => [config.reportStepId, config.appStepId])
-  );
+  const scoringConfigList = Object.values(scoringConfigs);
   const legacyStepAliases: Record<string, string> = {
     'Q01': 'prep.tech',
     'Q02': 'prep.material',
@@ -86,14 +84,78 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     '4.2.1-2-2': 'prep.assembly',
     '4.2.1-2-3': 'prep.cage',
     '4.2.1-3-1': 'prep.inspection',
-    '4.2.2-2': '9',
+    '4.2.2-1': 'acq.safety',
+    '4.2.2-2': 'acq.instrument',
   };
 
-  const getStep = (id: string) => {
-    const alias = stepAliases[id];
+  const configByStepKey = new Map<string, StepScoringConfig>();
+  const registerConfig = (key: string | undefined, config: StepScoringConfig) => {
+    if (key) configByStepKey.set(key, config);
+  };
+
+  scoringConfigList.forEach(config => {
+    registerConfig(config.stepId, config);
+    registerConfig(config.reportStepId, config);
+    registerConfig(config.appStepId, config);
+  });
+
+  Object.entries(legacyStepAliases).forEach(([legacyKey, targetKey]) => {
+    const targetConfig = configByStepKey.get(targetKey);
+    if (targetConfig) registerConfig(legacyKey, targetConfig);
+  });
+
+  const getStepConfig = (id: string) => configByStepKey.get(id);
+
+  const getCandidateStepKeys = (id: string) => {
+    const config = getStepConfig(id);
     const legacyAlias = legacyStepAliases[id];
-    const legacyAppAlias = legacyAlias ? stepAliases[legacyAlias] : undefined;
-    return stepData?.[id] || (alias ? stepData?.[alias] : undefined) || (legacyAlias ? stepData?.[legacyAlias] : undefined) || (legacyAppAlias ? stepData?.[legacyAppAlias] : undefined) || { score: 0, totalScore: 0, maxScore: 0, answers: [] };
+    const legacyConfig = legacyAlias ? getStepConfig(legacyAlias) : undefined;
+    const keys = [
+      id,
+      config?.stepId,
+      config?.reportStepId,
+      config?.appStepId,
+      legacyAlias,
+      legacyConfig?.stepId,
+      legacyConfig?.reportStepId,
+      legacyConfig?.appStepId,
+    ];
+
+    return keys.filter((key, index): key is string => Boolean(key) && keys.indexOf(key) === index);
+  };
+
+  const createUnansweredStep = (config: StepScoringConfig) => ({
+    ...calculateStepScore(config, []),
+    unanswered: true,
+  });
+
+  const getStep = (id: string) => {
+    const config = getStepConfig(id);
+    const step = getCandidateStepKeys(id).map(key => stepData?.[key]).find(Boolean);
+
+    if (!config) {
+      return step || { score: 0, totalScore: 0, maxScore: 0, answers: [] };
+    }
+
+    const hasAnswerDetails = Array.isArray(step?.answers) && step.answers.length > 0;
+    if (!step || !hasAnswerDetails) {
+      const unansweredStep = createUnansweredStep(config);
+      return step ? {
+        ...unansweredStep,
+        ...step,
+        answers: unansweredStep.answers,
+        totalScore: step.totalScore ?? step.score ?? unansweredStep.totalScore,
+        maxScore: step.maxScore ?? unansweredStep.maxScore,
+        unanswered: true,
+      } : unansweredStep;
+    }
+
+    return step;
+  };
+
+  const getStepScore = (id: string) => {
+    const step = getStep(id);
+    return step.totalScore ?? step.score ?? 0;
   };
 
   const m1Steps = ['prep.tech', 'prep.material', 'prep.assembly', 'prep.cage', 'prep.inspection', '4.2.1-3-2', '4.2.1-4'];
@@ -101,10 +163,7 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
   const m3Steps = ['4.2.3-1', '4.2.3-2', '4.2.3-3'];
 
   const calculateModuleScore = (stepIds: string[]) => {
-    return stepIds.reduce((acc, id) => {
-      const step = getStep(id);
-      return acc + (step.totalScore || step.score || 0);
-    }, 0);
+    return stepIds.reduce((acc, id) => acc + getStepScore(id), 0);
   };
 
   const calculateModuleMaxScore = (stepIds: string[]) => {
@@ -113,7 +172,11 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
       '4.2.2-1': 6, '4.2.2-2': 26,
       '4.2.3-1': 5, '4.2.3-2': 16, '4.2.3-3': 22
     };
-    return stepIds.reduce((acc, id) => acc + (maxScores[id] || 0), 0);
+    return stepIds.reduce((acc, id) => {
+      const config = getStepConfig(id);
+      const configMaxScore = config?.questions.reduce((sum, question) => sum + question.maxScore, 0);
+      return acc + (configMaxScore ?? maxScores[id] ?? 0);
+    }, 0);
   };
 
   const m1Score = calculateModuleScore(m1Steps);
@@ -135,18 +198,20 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     };
     return stepIds.map(id => {
       const step = getStep(id);
+      const questions = (step.answers || []).map((question: any) => ({
+        ...question,
+        id: question.id || question.questionId,
+        userAnswer: question.userAnswerLabel || question.userAnswer || '',
+        correctAnswer: question.correctAnswerLabel || question.correctAnswer || (question.correctRange ? `${question.correctRange[0]}-${question.correctRange[1]}${question.unit || ''}` : ''),
+        analysis: question.analysis || question.explanation || '暂无解析，请参考标准答案与评分规则。',
+      }));
       return {
         id,
         name: step.stepName || names[id] || id,
-        score: step.totalScore || step.score || 0,
-        maxScore: step.maxScore || calculateModuleMaxScore([id]),
-        questions: (step.answers || []).map((question: any) => ({
-          ...question,
-          id: question.id || question.questionId,
-          userAnswer: question.userAnswerLabel || question.userAnswer || '',
-          correctAnswer: question.correctAnswerLabel || question.correctAnswer || (question.correctRange ? `${question.correctRange[0]}-${question.correctRange[1]}${question.unit || ''}` : ''),
-          analysis: question.analysis || question.explanation || '暂无解析，请参考标准答案与评分规则。',
-        }))
+        score: step.totalScore ?? step.score ?? 0,
+        maxScore: step.maxScore ?? calculateModuleMaxScore([id]),
+        questions,
+        unanswered: step.unanswered || (questions.length > 0 && questions.every(question => !question.userAnswer)),
       };
     });
   };
@@ -190,12 +255,12 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
       dimensions: ["安装规范知识", "验收检测能力", "设备操作能力", "数据采集规范", "数据分析能力", "异常诊断能力", "预警决策能力"],
       values: [
         (m1Score / m1Max) || 0,
-        ((getStep('4.2.1-3-1').score || 0) + (getStep('4.2.1-3-2').score || 0)) / 8 || 0,
-        (getStep('4.2.2-2').totalScore / 26) || 0,
-        (getStep('4.2.2-1').score / 6) || 0,
-        (getStep('4.2.3-2').totalScore / 15) || 0,
-        (getStep('4.2.3-1').totalScore / 5) || 0,
-        (getStep('4.2.3-3').totalScore / 22) || 0
+        (getStepScore('4.2.1-3-1') + getStepScore('4.2.1-3-2')) / 8 || 0,
+        getStepScore('4.2.2-2') / 26 || 0,
+        getStepScore('4.2.2-1') / 6 || 0,
+        getStepScore('4.2.3-2') / 16 || 0,
+        getStepScore('4.2.3-1') / 5 || 0,
+        getStepScore('4.2.3-3') / 22 || 0
       ]
     }
   };
@@ -238,68 +303,40 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
 
 const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScore}分`;
 
-const MaskCallout: React.FC<{
-  label: string;
-  boxClassName?: string;
-  lineClassName?: string;
-  labelClassName?: string;
-}> = ({ label, boxClassName, lineClassName, labelClassName }) => (
-  <div className="pointer-events-none absolute inset-0 z-30 print:hidden">
-    <div
-      className={cn(
-        "absolute rounded-sm border border-dashed border-blue-600 bg-blue-500/5",
-        boxClassName
-      )}
-    />
-    <div className={cn("absolute border-blue-600", lineClassName)} />
-    <div
-      className={cn(
-        "absolute border border-blue-600 bg-white px-2 py-1 text-[9px] font-bold text-blue-700 shadow-[2px_2px_0px_0px_rgba(37,99,235,0.25)]",
-        labelClassName
-      )}
-    >
-      {label}
-    </div>
-  </div>
-);
-
-const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant; showMask?: boolean; maskStepIndex?: number }> = ({ step, variant, showMask, maskStepIndex = 0 }) => {
+const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
-  const showStepMask = showMask && maskStepIndex === 0;
 
   return (
     <div className="border border-industrial-fg/10 bg-white">
       <div className="relative w-full flex items-center justify-between px-3 py-2">
-        {showStepMask && (
-          <MaskCallout
-            label="实训步骤名称 + 步骤总得分"
-            boxClassName="inset-1"
-            lineClassName="-right-12 top-1/2 -translate-y-1/2 w-12 border-t"
-            labelClassName="-right-36 top-1/2 -translate-y-1/2"
-          />
-        )}
         <div className="flex-1 grid grid-cols-[1fr_auto] items-center gap-3">
           <div className="min-w-0">
             <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
           </div>
-          <div className={cn(
-            "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
-            isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
-        )}>
-            得分 {step.score} / {step.maxScore} 分
+          <div className="flex items-center justify-end gap-2">
+            {step.unanswered && (
+              <span className="border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 whitespace-nowrap">
+                未答题
+              </span>
+            )}
+            <span className={cn(
+              "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
+              isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
+            )}>
+              得分 {step.score} / {step.maxScore} 分
+            </span>
           </div>
         </div>
       </div>
       
       <div className="border-t border-industrial-fg/10 bg-industrial-bg/5">
             <div className="p-2 space-y-2">
-              {step.questions.map((q, questionIndex) => {
-                const showDetail = variant === 'full' || !q.correct;
+              {step.questions.map((q) => {
+                const showDetail = !q.correct;
                 const userAnswerText = q.userAnswer || '未作答';
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
-                const showQuestionMask = showStepMask && questionIndex < 2;
 
                 return (
                   <div key={q.id} className="relative bg-white border border-industrial-fg/10 text-[10px]">
@@ -308,14 +345,6 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant; showMask?
                       "relative flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
                       !showDetail && "border-b-0"
                     )}>
-                      {showQuestionMask && (
-                        <MaskCallout
-                          label={q.correct ? "正确图标 + 任务名称 + 选择答案 + 任务得分" : "错误图标 + 任务名称 + 选择答案 + 任务得分"}
-                          boxClassName="inset-0.5"
-                          lineClassName={questionIndex === 0 ? "-left-14 top-1/2 -translate-y-1/2 w-14 border-t" : "-right-14 top-1/2 -translate-y-1/2 w-14 border-t"}
-                          labelClassName={questionIndex === 0 ? "-left-44 top-1/2 -translate-y-1/2" : "-right-44 top-1/2 -translate-y-1/2"}
-                        />
-                      )}
                       {/* 左侧：图标 + 题目名称 - 固定宽度 */}
                       <div className="flex items-center space-x-2 w-[120px] md:w-[160px] shrink-0">
                         {q.correct ? <CheckCircle2 size={12} className="shrink-0 text-green-500" /> : <XCircle size={12} className="shrink-0 text-red-500" />}
@@ -343,26 +372,10 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant; showMask?
                     {showDetail && (
                       <div className="relative grid grid-cols-1 gap-2 p-2 md:grid-cols-2">
                         <div className="relative border border-green-200 bg-green-50 px-2 py-1.5">
-                          {showQuestionMask && !q.correct && (
-                            <MaskCallout
-                              label="标准答案"
-                              boxClassName="inset-0.5"
-                              lineClassName="-left-10 top-1/2 -translate-y-1/2 w-10 border-t"
-                              labelClassName="-left-24 top-1/2 -translate-y-1/2"
-                            />
-                          )}
                           <div className="text-[8px] font-bold uppercase tracking-widest text-green-700/50 mb-1">标准答案</div>
                           <div className="font-bold text-green-700 break-words">{correctAnswerText}</div>
                         </div>
                         <div className="relative border-l-2 border-industrial-fg/30 bg-industrial-bg/10 px-2 py-1.5 leading-snug">
-                          {showQuestionMask && !q.correct && (
-                            <MaskCallout
-                              label="解析"
-                              boxClassName="inset-0.5"
-                              lineClassName="-right-10 top-1/2 -translate-y-1/2 w-10 border-t"
-                              labelClassName="-right-20 top-1/2 -translate-y-1/2"
-                            />
-                          )}
                           <div className="text-[8px] font-bold uppercase tracking-widest opacity-40 mb-1">解析</div>
                           <div className="opacity-75 break-words">{analysisText}</div>
                         </div>
@@ -379,47 +392,16 @@ const StepDetail: React.FC<{ step: StepResult; variant: ReportVariant; showMask?
 
 // --- Main Report Component ---
 
-export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; variant?: ReportVariant }> = ({ data, variant = 'mistakesOnly' }) => {
+export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({ data }) => {
   const [showRequirements, setShowRequirements] = useState(false);
-  const [showStructureMask, setShowStructureMask] = useState(false);
-  const [reqVisible, setReqVisible] = useState(false);
-  const reqPanelRef = useRef<HTMLDivElement>(null);
-  const reqDragOffset = useRef({ x: 0, y: 0 });
-  const [reqPos, setReqPos] = useState({ right: 20, bottom: 20 });
-
-  const handleReqDragStart = useCallback((e: ReactMouseEvent) => {
-    e.preventDefault();
-    const el = reqPanelRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    reqDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    const onMove = (ev: MouseEvent) => {
-      const x = ev.clientX - reqDragOffset.current.x;
-      const y = ev.clientY - reqDragOffset.current.y;
-      setReqPos({ right: window.innerWidth - x - rect.width, bottom: window.innerHeight - y - rect.height });
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
 
   return (
     <div className="min-h-screen bg-industrial-bg/20 py-12 px-4 print:bg-white print:p-0">
-      <div className="max-w-4xl mx-auto space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
+      <div className="mx-auto max-w-4xl">
+      <div className="space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
         
         {/* Header */}
         <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-industrial-fg pb-8 gap-8">
-          {showStructureMask && (
-            <MaskCallout
-              label="主标题、副标题、学生信息、总成绩"
-              boxClassName="inset-0"
-              lineClassName="-left-16 top-1/2 -translate-y-1/2 w-16 border-t"
-              labelClassName="-left-48 top-1/2 -translate-y-1/2"
-            />
-          )}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-industrial-fg text-industrial-bg">
@@ -445,35 +427,17 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void; varian
         <div className="space-y-6">
           <h3 className="technical-label">得分明细</h3>
           <div className="space-y-1">
-            {data.modules.flatMap(module => module.steps).map((step, index) => (
-              <StepDetail key={step.id} step={step} variant={variant} showMask={showStructureMask} maskStepIndex={index} />
+            {data.modules.flatMap(module => module.steps).map((step) => (
+              <StepDetail key={step.id} step={step} />
             ))}
           </div>
         </div>
 
       </div>
+      </div>
 
       {/* Requirements Overlay */}
       {showRequirements && <RequirementsOverlay onClose={() => setShowRequirements(false)} defaultPage="score-report" />}
-
-      {/* MASK Floating Button */}
-      {reqVisible && <div
-        ref={reqPanelRef}
-        className="fixed z-[200] flex flex-col items-end gap-2 print:hidden"
-        style={{ right: reqPos.right, bottom: reqPos.bottom }}
-      >
-        <button
-          onMouseDown={handleReqDragStart}
-          onClick={() => setShowStructureMask(v => !v)}
-          className={cn(
-            "w-12 h-9 flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(37,99,235,0.3)] cursor-move select-none",
-            showStructureMask ? "bg-blue-600 text-white" : "bg-white text-blue-700 border-2 border-blue-600"
-          )}
-          title="结构蒙版 — 拖拽移动"
-        >
-          MASK
-        </button>
-      </div>}
     </div>
   );
 };

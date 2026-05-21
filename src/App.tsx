@@ -14,7 +14,7 @@ import {
   ReportCompilation,
   MultiPeriodAnalysis
 } from './components/steps';
-import { ReportPage, generateMockReport, type ReportVariant } from './components/ReportPage';
+import { ReportPage, generateMockReport } from './components/ReportPage';
 import { StartPage } from './components/StartPage';
 import { FrameworkGuide } from './components/FrameworkGuide';
 import { MultiPeriodChart } from './components/MultiPeriodChart';
@@ -33,7 +33,6 @@ function AppInner() {
   const [currentStep, setCurrentStep] = useState<StepId>('1');
   const [showReport, setShowReport] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
-  const [reportVariant, setReportVariant] = useState<ReportVariant>('mistakesOnly');
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
@@ -43,7 +42,7 @@ function AppInner() {
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
   const [currentRequirementPage, setCurrentRequirementPage] = useState<RequirementPage>('training-steps');
-  const [reqVisible, setReqVisible] = useState(false);
+  const [reqVisible, setReqVisible] = useState(true);
   const reqPanelRef = useRef<HTMLDivElement>(null);
   const reqDragOffset = useRef({ x: 0, y: 0 });
   const [reqPos, setReqPos] = useState({ right: 80, bottom: 20 });
@@ -110,12 +109,11 @@ function AppInner() {
   const [stepData, setStepData] = useState<Record<string, any>>(() => loadTrainingSession().results);
 
   const handleFinish = () => {
-    setReportVariant('mistakesOnly');
     setReportData(generateMockReport("张三", stepData));
     setShowReport(true);
   };
 
-  const handleDevSampleAnswerSheet = (variant: ReportVariant) => {
+  const handleDevAssessmentReport = () => {
     const sampleResults = createDevSampleStepResults();
     const sampleCompletedSteps = Object.keys(sampleResults) as StepId[];
     const session = loadTrainingSession();
@@ -133,7 +131,6 @@ function AppInner() {
     setCompletedSteps(new Set(sampleCompletedSteps));
     setAllUnlocked(true);
     setShowDevPanel(false);
-    setReportVariant(variant);
     setReportData(generateMockReport("开发示例学生", sampleResults));
     setShowReport(true);
   };
@@ -188,7 +185,7 @@ function AppInner() {
   }
 
   if (showReport && reportData) {
-    return <ReportPage data={reportData} variant={reportVariant} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
+    return <ReportPage data={reportData} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
   }
 
   if (showTransition) {
@@ -459,22 +456,10 @@ function AppInner() {
           <div className="bg-white border-2 border-industrial-fg shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] p-4 w-52 space-y-2">
             <div className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-40 border-b border-industrial-fg/20 pb-2 mb-3">DEV TOOLS</div>
             <button
-              onClick={handleFinish}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              查看评估报告
-            </button>
-            <button
-              onClick={() => handleDevSampleAnswerSheet('full')}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              典型答卷-完整
-            </button>
-            <button
-              onClick={() => handleDevSampleAnswerSheet('mistakesOnly')}
+              onClick={handleDevAssessmentReport}
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-green-300 bg-green-50 hover:bg-green-100 transition-colors text-green-700"
             >
-              典型答卷-错题
+              评估报告
             </button>
             <button
               onClick={() => { clearTrainingSession(); setStepData({}); setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}
