@@ -18,7 +18,6 @@ import { ReportPage, generateMockReport } from './components/ReportPage';
 import { StartPage } from './components/StartPage';
 import { FrameworkGuide } from './components/FrameworkGuide';
 import { MultiPeriodChart } from './components/MultiPeriodChart';
-import { RequirementsOverlay, type RequirementPage } from './components/RequirementsOverlay';
 import { Modal, Button } from './components/Common';
 import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
@@ -40,12 +39,6 @@ function AppInner() {
   const [showDevPanel, setShowDevPanel] = useState(false);
   const [showFrameworkGuide, setShowFrameworkGuide] = useState(false);
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
-  const [showRequirements, setShowRequirements] = useState(false);
-  const [currentRequirementPage, setCurrentRequirementPage] = useState<RequirementPage>('training-steps');
-  const [reqVisible, setReqVisible] = useState(true);
-  const reqPanelRef = useRef<HTMLDivElement>(null);
-  const reqDragOffset = useRef({ x: 0, y: 0 });
-  const [reqPos, setReqPos] = useState({ right: 80, bottom: 20 });
   const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(() => new Set(loadTrainingSession().completedSteps as StepId[]));
   const [allUnlocked, setAllUnlocked] = useState(false);
   const devPanelRef = useRef<HTMLDivElement>(null);
@@ -57,10 +50,6 @@ function AppInner() {
       if (e.ctrlKey && e.shiftKey && e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setDevVisible(v => !v);
-      }
-      if (e.ctrlKey && e.shiftKey && e.altKey && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        setReqVisible(v => !v);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -86,24 +75,6 @@ function AppInner() {
     window.addEventListener('mouseup', onUp);
   }, []);
 
-  const handleReqDragStart = useCallback((e: ReactMouseEvent) => {
-    e.preventDefault();
-    const el = reqPanelRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    reqDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    const onMove = (ev: MouseEvent) => {
-      const x = ev.clientX - reqDragOffset.current.x;
-      const y = ev.clientY - reqDragOffset.current.y;
-      setReqPos({ right: window.innerWidth - x - rect.width, bottom: window.innerHeight - y - rect.height });
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
   const [showTransition, setShowTransition] = useState(false);
 
   const [stepData, setStepData] = useState<Record<string, any>>(() => loadTrainingSession().results);
@@ -415,37 +386,6 @@ function AppInner() {
       {showFrameworkGuide && <FrameworkGuide onClose={() => setShowFrameworkGuide(false)} />}
       {/* Multi-Period Chart */}
       {showMultiPeriodChart && <MultiPeriodChart onClose={() => setShowMultiPeriodChart(false)} />}
-      {/* Requirements Overlay */}
-      {showRequirements && <RequirementsOverlay onClose={() => setShowRequirements(false)} defaultPage={currentRequirementPage} />}
-
-      {/* REQ Floating Button */}
-      {reqVisible && <div
-        ref={reqPanelRef}
-        className="fixed z-[200] flex flex-col items-end"
-        style={{ right: reqPos.right, bottom: reqPos.bottom }}
-      >
-        <button
-          onMouseDown={handleReqDragStart}
-          onClick={() => {
-            // 根据当前界面设置默认需求页面
-            if (showReport) {
-              setCurrentRequirementPage('score-report');
-            } else if (currentStep === '10') {
-              setCurrentRequirementPage('data-processing');
-            } else if (currentStep === '12') {
-              setCurrentRequirementPage('multi-period-analysis');
-            } else {
-              setCurrentRequirementPage('training-steps');
-            }
-            setShowRequirements(true);
-          }}
-          className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(37,99,235,0.3)] cursor-move select-none"
-          title="需求文档 — 拖拽移动 (Ctrl+Shift+Alt+R)"
-        >
-          REQ
-        </button>
-      </div>}
-
       {/* DEV Floating Panel */}
       {devVisible && <div
         ref={devPanelRef}
