@@ -2,6 +2,7 @@ import stepsCsv from './training/steps.csv?raw';
 import hotspotsCsv from './training/hotspots.csv?raw';
 import questionsCsv from './training/questions.csv?raw';
 import optionsCsv from './training/options.csv?raw';
+import scoringOptionsCsv from './training/scoringOptions.csv?raw';
 import uiLabelsCsv from './training/uiLabels.csv?raw';
 import initialMeasurementDataCsv from './training/initialMeasurementData.csv?raw';
 import monitoringPeriodDataCsv from './training/monitoringPeriodData.csv?raw';
@@ -48,6 +49,12 @@ export type TrainingQuestionContent = {
   analysis: string;
 };
 
+type RawTrainingQuestionContent = Partial<TrainingQuestionContent> & {
+  questionLabel?: string;
+  questionDesc?: string;
+  questionType?: string;
+};
+
 export type TrainingOptionContent = {
   questionId: string;
   value: string;
@@ -56,6 +63,25 @@ export type TrainingOptionContent = {
   desc: string;
   hotspotId?: string;
   imageResourceId?: string;
+  x?: string;
+  y?: string;
+};
+
+type RawTrainingOptionContent = {
+  questionId: string;
+  optionId: string;
+};
+
+type ScoringOptionContent = {
+  questionId: string;
+  任务名称: string;
+  选项ID: string;
+  选项名称: string;
+  选项内容: string;
+  选项描述: string;
+  选项坐标X: string;
+  选项坐标Y: string;
+  选项图片: string;
 };
 
 export type InitialMeasurementDataRow = {
@@ -145,9 +171,9 @@ const parseCsvLine = (line: string) => {
   return values;
 };
 
-const parseCsv = <T extends Record<string, string>>(csv: string): T[] => {
+const parseCsv = <T extends Record<string, string | undefined>>(csv: string): T[] => {
   const lines = csv.trim().split(/\r?\n/).filter(Boolean);
-  const headers = parseCsvLine(lines[0]);
+  const headers = parseCsvLine(lines[0]).map(header => header.replace(/^\uFEFF/, ''));
 
   return lines.slice(1).map(line => {
     const values = parseCsvLine(line);
@@ -160,8 +186,9 @@ const parseCsv = <T extends Record<string, string>>(csv: string): T[] => {
 
 export const trainingSteps = parseCsv<TrainingStepContent>(stepsCsv);
 export const trainingHotspots = parseCsv<TrainingHotspotContent>(hotspotsCsv);
-export const trainingQuestions = parseCsv<TrainingQuestionContent>(questionsCsv);
-export const trainingOptions = parseCsv<TrainingOptionContent>(optionsCsv);
+const rawTrainingQuestions = parseCsv<RawTrainingQuestionContent>(questionsCsv);
+const rawTrainingOptions = parseCsv<RawTrainingOptionContent>(optionsCsv);
+const scoringOptionRows = parseCsv<ScoringOptionContent>(scoringOptionsCsv).filter(row => row.questionId);
 export const initialMeasurementDataRows = parseCsv<InitialMeasurementDataRow>(initialMeasurementDataCsv);
 export const monitoringPeriodRows = parseCsv<MonitoringPeriodDataRow>(monitoringPeriodDataCsv);
 export const dataProcessingRows = parseCsv<DataProcessingDataRow>(dataProcessingDataCsv);
@@ -169,6 +196,188 @@ export const reportCompilationRows = parseCsv<ReportCompilationDataRow>(reportCo
 export const trainingResources = parseCsv<TrainingResourceContent>(resourcesCsv);
 
 const uiLabelRows = parseCsv<{ stepId: string; key: string; text: string }>(uiLabelsCsv);
+
+const stepIdAliases: Record<string, string> = {
+  STEP01: 'prep.tech',
+  STEP02: 'prep.material',
+  STEP03: 'prep.assembly',
+  STEP04: 'prep.cage',
+  STEP05: 'prep.inspection',
+  STEP06: 'prep.connectivity',
+  STEP07: 'prep.initialMeasurement',
+  STEP08: 'acq.safety',
+  STEP09: 'acq.instrument',
+  STEP10: 'data.processing',
+  STEP11: 'data.report',
+  STEP12: 'data.analysis',
+};
+
+const questionIdAliases: Record<string, string> = {
+  Q001: 'prep.tech.location',
+  Q002: 'prep.tech.spacing',
+  Q003: 'prep.material.area',
+  Q004: 'prep.material.inspection',
+  Q005: 'prep.assembly.tube',
+  Q006: 'prep.assembly.connector',
+  Q007: 'prep.assembly.bottomCap',
+  Q008: 'prep.assembly.joint',
+  Q009: 'prep.cage.section',
+  Q010: 'prep.cage.height',
+  Q011: 'prep.cage.spacing',
+  Q012: 'prep.cage.tightness',
+  Q013: 'prep.inspection.cx01',
+  Q014: 'prep.inspection.cx02',
+  Q015: 'prep.inspection.cx03',
+  Q016: 'prep.inspection.cx04',
+  Q017: 'prep.connectivity.cx01',
+  Q018: 'prep.connectivity.cx02',
+  Q019: 'prep.connectivity.cx03',
+  Q020: 'prep.connectivity.cx04',
+  Q021: 'prep.initialMeasurement.condition',
+  Q022: 'prep.initialMeasurement.data',
+  Q023: 'acq.safety.weather',
+  Q024: 'acq.safety.equipment',
+  Q025: 'acq.safety.instrument',
+  Q026: 'acq.instrument.powerOrder',
+  Q027: 'acq.instrument.interval',
+  Q028: 'acq.instrument.cable',
+  Q029: 'acq.instrument.area',
+  Q030: 'acq.instrument.hole',
+  Q031: 'acq.instrument.depth',
+  Q032: 'acq.instrument.probeDirection',
+  Q033: 'acq.instrument.stepLength',
+  Q034: 'acq.instrument.remeasureGroup',
+  Q035: 'acq.instrument.remeasureDepth',
+  Q036: 'acq.instrument.remeasureDirection',
+  Q037: 'acq.instrument.forwardOrientation',
+  Q038: 'acq.instrument.forwardAlignment',
+  Q039: 'acq.instrument.forward20',
+  Q040: 'acq.instrument.forward19_5',
+  Q041: 'acq.instrument.forward19',
+  Q042: 'acq.instrument.forward18_5',
+  Q043: 'acq.instrument.forward18',
+  Q044: 'acq.instrument.reverse20',
+  Q045: 'acq.instrument.reverse19_5',
+  Q046: 'acq.instrument.reverse19',
+  Q047: 'acq.instrument.reverse18_5',
+  Q048: 'acq.instrument.reverse18',
+  Q049: 'acq.instrument.forward12_5',
+  Q050: 'acq.instrument.reverse12_5',
+  Q051: 'acq.instrument.cleanupOrder',
+  Q052: 'data.processing.connection',
+  Q053: 'data.processing.area',
+  Q054: 'data.processing.hole',
+  Q055: 'data.processing.cumDisp10',
+  Q056: 'data.processing.cumDisp14',
+  Q057: 'data.report.hole',
+  Q058: 'data.report.period',
+  Q059: 'data.report.instrument',
+  Q060: 'data.report.change2',
+  Q061: 'data.report.change10',
+  Q062: 'data.report.rate10',
+  Q063: 'data.report.rate18',
+  Q064: 'data.report.shapeReason',
+  Q065: 'data.report.warningLevel',
+  Q066: 'data.analysis.maxDepth',
+  Q067: 'data.analysis.accelStart',
+  Q068: 'data.analysis.maxRecentZone',
+  Q069: 'data.analysis.warningDepths',
+  Q070: 'data.analysis.trend10',
+  Q071: 'data.analysis.action',
+  Q072: 'data.analysis.nextInterval',
+};
+
+const questionUnitById: Record<string, string> = {
+  'prep.tech.spacing': 'm',
+  'acq.instrument.depth': 'm',
+  'acq.instrument.forward20': 'mm',
+  'acq.instrument.forward19_5': 'mm',
+  'acq.instrument.forward19': 'mm',
+  'acq.instrument.forward18_5': 'mm',
+  'acq.instrument.forward18': 'mm',
+  'acq.instrument.reverse20': 'mm',
+  'acq.instrument.reverse19_5': 'mm',
+  'acq.instrument.reverse19': 'mm',
+  'acq.instrument.reverse18_5': 'mm',
+  'acq.instrument.reverse18': 'mm',
+  'acq.instrument.forward12_5': 'mm',
+  'acq.instrument.reverse12_5': 'mm',
+  'data.processing.cumDisp10': 'mm',
+  'data.processing.cumDisp14': 'mm',
+  'data.report.change2': 'mm',
+  'data.report.change10': 'mm',
+  'data.report.rate10': 'mm/d',
+  'data.report.rate18': 'mm/d',
+};
+
+const groupBy = <T extends Record<string, string>>(rows: T[], key: keyof T) => rows.reduce((groups, row) => {
+  const groupKey = row[key];
+  if (!groupKey) {
+    return groups;
+  }
+
+  return {
+    ...groups,
+    [groupKey]: [...(groups[groupKey] || []), row],
+  };
+}, {} as Record<string, T[]>);
+
+const rawOptionsByQuestionId = groupBy(rawTrainingOptions, 'questionId');
+const scoringOptionsByQuestionId = groupBy(scoringOptionRows, 'questionId');
+
+const mapChoiceAnswer = (rawQuestionId: string, questionId: string, answer: string) => {
+  const rawOptions = rawOptionsByQuestionId[rawQuestionId] || [];
+  const scoringOptions = scoringOptionsByQuestionId[questionId] || [];
+
+  return answer.split(';').map(value => {
+    const optionIndex = rawOptions.findIndex(option => option.optionId === value);
+    return scoringOptions[optionIndex]?.选项ID || value;
+  }).join(';');
+};
+
+const parseRangeAnswer = (question: RawTrainingQuestionContent) => {
+  if (question.correctRangeMin || question.correctRangeMax) {
+    return [question.correctRangeMin || '', question.correctRangeMax || ''];
+  }
+
+  const match = question.correctAnswer?.match(/\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/);
+  return [match?.[1] || '', match?.[2] || ''];
+};
+
+export const trainingOptions: TrainingOptionContent[] = scoringOptionRows.map(option => ({
+  questionId: option.questionId,
+  value: option.选项ID,
+  code: option.选项名称,
+  label: option.选项内容,
+  desc: option.选项描述,
+  imageResourceId: option.选项图片 || undefined,
+  x: option.选项坐标X || undefined,
+  y: option.选项坐标Y || undefined,
+}));
+
+export const trainingQuestions: TrainingQuestionContent[] = rawTrainingQuestions.map(question => {
+  const questionId = questionIdAliases[question.questionId || ''] || question.questionId || '';
+  const stepId = stepIdAliases[question.stepId || ''] || question.stepId || '';
+  const type = question.type || question.questionType || '';
+  const scoringOptions = scoringOptionsByQuestionId[questionId] || [];
+  const [correctRangeMin, correctRangeMax] = parseRangeAnswer(question);
+
+  return {
+    stepId,
+    questionId,
+    label: question.label || question.questionLabel || scoringOptions[0]?.任务名称 || questionId,
+    prompt: question.prompt || question.questionDesc || '',
+    type,
+    maxScore: question.maxScore || '0',
+    correctAnswer: type.includes('Choice')
+      ? mapChoiceAnswer(question.questionId || '', questionId, question.correctAnswer || '')
+      : question.correctAnswer || '',
+    correctRangeMin,
+    correctRangeMax,
+    unit: question.unit || questionUnitById[questionId] || '',
+    analysis: question.analysis || '',
+  };
+});
 
 export const trainingStepsByAppId = Object.fromEntries(
   trainingSteps.map(step => [step.appStepId, step])
@@ -211,7 +420,7 @@ export const getUiLabel = (stepId: string, key: string, values?: Record<string, 
 
 const toChoiceQuestion = (question: TrainingQuestionContent): ChoiceQuestionConfig => {
   const options = getTrainingOptions(question.questionId).map(option => {
-    const hotspot = option.hotspotId ? trainingHotspots.find(item => item.hotspotId === option.hotspotId && item.questionId === question.questionId) : undefined;
+    const hotspot = trainingHotspots.find(item => item.hotspotId === (option.hotspotId || option.value) && item.questionId === question.questionId);
 
     return {
       value: option.value,
@@ -220,8 +429,8 @@ const toChoiceQuestion = (question: TrainingQuestionContent): ChoiceQuestionConf
       desc: option.desc,
       imageResourceId: option.imageResourceId || undefined,
       image: getResourceImageSource(option.imageResourceId),
-      x: hotspot?.x,
-      y: hotspot?.y,
+      x: option.x || hotspot?.x,
+      y: option.y || hotspot?.y,
     };
   });
 
