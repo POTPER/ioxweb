@@ -3,8 +3,7 @@ import { cn } from '../lib/utils';
 import { scoringConfigs, type StepScoringConfig } from '../data/scoringConfig';
 import { calculateStepScore } from '../lib/scoring';
 import {
-  User, Calendar, Clock, Award,
-  CheckCircle2, XCircle, FileText, Home
+  CheckCircle2, XCircle
 } from 'lucide-react';
 import { RequirementsOverlay } from './RequirementsOverlay';
 
@@ -54,7 +53,6 @@ export interface ReportData {
   exam: {
     startTime: string;
     endTime: string;
-    totalDuration: number;
     totalScore: number;
     totalMaxScore: number;
   };
@@ -221,7 +219,6 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
     exam: {
       startTime: "2026-04-03 14:00",
       endTime: new Date().toLocaleString(),
-      totalDuration: 2700,
       totalScore,
       totalMaxScore: totalMax
     },
@@ -303,6 +300,15 @@ const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, max
 
 const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScore}分`;
 
+const formatUserAnswerText = (question: QuestionResult) => {
+  if (question.id === 'acq.instrument.cleanupOrder') {
+    if (!question.userAnswer) return '未执行关闭电源';
+    if (question.userAnswer.includes('先拔除线材')) return '先拔除线材，再关闭电源（未先关闭电源）';
+  }
+
+  return question.userAnswer || '未作答';
+};
+
 const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
   const percentage = (step.score / step.maxScore) * 100;
   const isWeak = percentage < 60;
@@ -334,7 +340,7 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
             <div className="p-2 space-y-2">
               {step.questions.map((q) => {
                 const showDetail = !q.correct;
-                const userAnswerText = q.userAnswer || '未作答';
+                const userAnswerText = formatUserAnswerText(q);
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
 
@@ -404,20 +410,16 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
         <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-industrial-fg pb-8 gap-8">
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-industrial-fg text-industrial-bg">
-                <FileText size={24} />
-              </div>
               <div>
                 <h1 className="text-2xl font-bold uppercase tracking-tighter">成绩报告</h1>
                 <div className="mt-1 text-xs font-bold tracking-wider opacity-60">深基坑深层水平位移监测实训</div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[11px] font-mono">
-              <div className="flex items-center space-x-2"><User size={12} className="opacity-40" /><span>学生姓名: {data.student.name}</span></div>
-              <div className="flex items-center space-x-2"><Award size={12} className="opacity-40" /><span>学号: {data.student.studentId}</span></div>
-              <div className="flex items-center space-x-2"><Home size={12} className="opacity-40" /><span>班级: {data.student.className}</span></div>
-              <div className="flex items-center space-x-2"><Calendar size={12} className="opacity-40" /><span>完成时间: {data.exam.endTime}</span></div>
-              <div className="flex items-center space-x-2"><Clock size={12} className="opacity-40" /><span>总用时: {Math.floor(data.exam.totalDuration / 60)}min</span></div>
+              <div>学生姓名: {data.student.name}</div>
+              <div>学号: {data.student.studentId}</div>
+              <div>班级: {data.student.className}</div>
+              <div>完成时间: {data.exam.endTime}</div>
             </div>
           </div>
           <ScoreCircle score={data.exam.totalScore} maxScore={data.exam.totalMaxScore} />

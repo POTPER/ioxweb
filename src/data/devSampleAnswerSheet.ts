@@ -9,6 +9,7 @@ const devAnswerOverrides: Record<string, UserAnswerValue> = {
   'acq.safety.equipment': 'helmet',
   'acq.instrument.interval': '1',
   'acq.instrument.reverse18': '-75',
+  'acq.instrument.cleanupOrder': 'disconnectBeforePowerOff',
   'data.processing.connection': 'notConnected',
   'data.report.rate10': '1.10',
   'data.analysis.nextInterval': '维持7天',
