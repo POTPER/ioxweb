@@ -17,25 +17,41 @@ export const MONITORING = {
 type MonitoringPeriodRow = {
   period: number;
   date: string;
-  previousPeriod: number;
-  previousDate: string;
-  intervalDays: number;
   depth: number;
+  aPlus: number | null;
+  aMinus: number | null;
+  checksum: number | null;
+  bPlus: number | null;
+  bMinus: number | null;
   cumDisp: number;
-  prevCumDisp: number;
   change: number;
   rate: number;
+};
+
+export type MonitoringRawReading = {
+  depth: number;
+  aPlus: number | null;
+  aMinus: number | null;
+  checksum: number | null;
+  bPlus: number | null;
+  bMinus: number | null;
+};
+
+const parseOptionalNumber = (value?: string) => {
+  const trimmed = value?.trim();
+  return trimmed ? Number(trimmed) : null;
 };
 
 const periodRows: MonitoringPeriodRow[] = monitoringPeriodRows.map(row => ({
   period: Number(row.period),
   date: row.date,
-  previousPeriod: Number(row.previousPeriod),
-  previousDate: row.previousDate,
-  intervalDays: Number(row.intervalDays),
   depth: Number(row.depth),
+  aPlus: parseOptionalNumber(row.aPlus),
+  aMinus: parseOptionalNumber(row.aMinus),
+  checksum: parseOptionalNumber(row.checksum),
+  bPlus: parseOptionalNumber(row.bPlus),
+  bMinus: parseOptionalNumber(row.bMinus),
   cumDisp: Number(row.cumDisp),
-  prevCumDisp: Number(row.prevCumDisp),
   change: Number(row.change),
   rate: Number(row.rate),
 }));
@@ -54,7 +70,15 @@ export const PERIODS = periodNumbers.length;
 export const DEPTHS: number[] = rowsByPeriod.get(periodNumbers[0])?.map(row => row.depth) ?? [];
 export const DEPTH_POINTS = DEPTHS.length;
 export const PERIOD_DATES = periodNumbers.map(period => rowsByPeriod.get(period)?.[0]?.date ?? '');
-export const PERIOD_INTERVALS = periodNumbers.map(period => rowsByPeriod.get(period)?.[0]?.intervalDays ?? 0);
+export const PERIOD_INTERVALS = PERIOD_DATES.map((date, index) => {
+  if (index === 0 || !date || !PERIOD_DATES[index - 1]) {
+    return 0;
+  }
+
+  const currentTime = new Date(`${date}T00:00:00`).getTime();
+  const previousTime = new Date(`${PERIOD_DATES[index - 1]}T00:00:00`).getTime();
+  return Math.round((currentTime - previousTime) / 86400000);
+});
 
 export const PERIOD_CONDITIONS = [
   '第一层土方开挖完成，安装第一道钢支撑',
@@ -80,14 +104,31 @@ export function getCumDisp(period: number, depthIndex: number): number {
 }
 
 /** Get the full row data for a specific period with change and rate vs previous period. */
-export function getPeriodRows(period: number): { depth: number; cumDisp: number; prevCumDisp: number; change: number; rate: number }[] {
+export function getPeriodRows(period: number): { depth: number; cumDisp: number; change: number; rate: number }[] {
   return (rowsByPeriod.get(period) ?? []).map(row => ({
     depth: row.depth,
     cumDisp: row.cumDisp,
-    prevCumDisp: row.prevCumDisp,
     change: row.change,
     rate: row.rate,
   }));
+}
+
+/** Get raw inclinometer readings for a period/depth pair, when present in the CSV. */
+export function getMonitoringRawReading(period: number, depth: number): MonitoringRawReading | undefined {
+  const row = rowsByPeriod.get(period)?.find(item => Math.abs(item.depth - depth) < 0.001);
+
+  if (!row) {
+    return undefined;
+  }
+
+  return {
+    depth: row.depth,
+    aPlus: row.aPlus,
+    aMinus: row.aMinus,
+    checksum: row.checksum,
+    bPlus: row.bPlus,
+    bMinus: row.bMinus,
+  };
 }
 
 /** Get depths in the latest period that exceed the warning threshold. */

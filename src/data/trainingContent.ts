@@ -93,12 +93,13 @@ export type InitialMeasurementDataRow = {
 export type MonitoringPeriodDataRow = {
   period: string;
   date: string;
-  previousPeriod: string;
-  previousDate: string;
-  intervalDays: string;
   depth: string;
+  aPlus?: string;
+  aMinus?: string;
+  checksum?: string;
+  bPlus?: string;
+  bMinus?: string;
   cumDisp: string;
-  prevCumDisp: string;
   change: string;
   rate: string;
 };

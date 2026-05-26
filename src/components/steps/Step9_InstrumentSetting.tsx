@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 import { AlertCircle } from 'lucide-react';
 import { WireframePlaceholder } from '../WireframeOverlay';
 import { acqInstrumentScoringConfig } from '../../data/scoringConfig';
+import { getMonitoringRawReading } from '../../data/monitoringData';
 import { calculateStepScore, type UserAnswerValue } from '../../lib/scoring';
 
 // --- Types ---
@@ -20,25 +21,12 @@ interface Reading {
 type Phase = 1 | 2 | 3 | 4 | 5 | 6;
 type LcdScreen = 'off' | 'main' | 'params' | 'probe' | 'confirm-fwd' | 'confirm-rev' | 'collect' | 'remeasure' | 'auto-collect' | 'time-setting';
 
-// --- 第6期原始读数 (from 监测数据.md § 第6期原始读数) ---
-// 索引 0 = 0.5m … 39 = 20.0m，[A+(正测mm), A-(反测mm)]
-// 由初测读数 + 累计位移推导：Δraw = (cumul(d)−cumul(d+0.5)) × C/L，C=20000，L=500mm
-const RAW_READINGS: [number, number][] = [
-  [140,-136],[127,-123],[115,-111],[97,-93],[74,-70],
-  [52,-48],[30,-27],[9,-6],[-9,11],[-26,28],
-  [-37,39],[-47,49],[-54,56],[-59,61],[-57,58],
-  [-51,52],[-43,44],[-84,85],[-12,13],[17,-16],
-  [77,-76],[40,-39],[49,-47],[56,-54],[61,-59],
-  [62,-60],[37,-35],[80,-78],[49,-47],[42,-40],
-  [36,-35],[30,-29],[26,-25],[22,-21],[17,-16],
-  [13,-13],[9,-8],[4,-4],[5,-5],[0,0],
-];
+const DATA_PERIOD = 6;
 
 const getReading = (depth: number, type: 'forward' | 'reverse'): number => {
-  const idx = Math.round(depth / 0.5) - 1;
-  if (idx < 0 || idx >= RAW_READINGS.length) return 0;
-  const [fwd, rev] = RAW_READINGS[idx];
-  return type === 'forward' ? fwd : rev;
+  const reading = getMonitoringRawReading(DATA_PERIOD, depth);
+  const value = type === 'forward' ? reading?.aPlus : reading?.aMinus;
+  return value ?? 0;
 };
 
 // 正弦模型常量：测量段长 0.5m = 500mm

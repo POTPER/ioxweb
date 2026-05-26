@@ -28,7 +28,7 @@ interface DepthRow {
 function generatePeriodRows(period: number): DepthRow[] {
   const curr = CUM_DISP[period - 1];
   const prev = period > 1 ? CUM_DISP[period - 2] : curr.map(() => 0);
-  const interval = PERIOD_INTERVALS[period - 1] || 7;
+  const interval = PERIOD_INTERVALS[period - 1] ?? 7;
   return DEPTHS.map((d, i) => {
     const cumDisp = curr[i];
     const chg = Number((curr[i] - prev[i]).toFixed(2));
