@@ -26,6 +26,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
 import { createDevSampleStepResults } from './data/devSampleAnswerSheet';
+import bgPdfUrl from '../assets/工程资料X.pdf?url';
+import standardPdfUrl from '../assets/GB50497-建筑基坑工程监测技术标准-3.pdf?url';
 
 function AppInner() {
   const [hasStarted, setHasStarted] = useState(false);
@@ -327,19 +329,30 @@ function AppInner() {
         </div>
 
         {/* Tab Content — PDF Viewer */}
-        <div className="text-xs leading-relaxed max-h-[60vh] overflow-y-auto">
+        <div className="text-xs leading-relaxed">
           {(() => {
-            const pdfLabels: Record<string, string> = {
-              bg: '工程背景',
-              instrument: '仪器使用说明书',
-              tube: '测斜管使用说明书',
-              standard: '规范参考',
+            const pdfMap: Record<string, { label: string; url?: string }> = {
+              bg: { label: '工程背景', url: bgPdfUrl },
+              instrument: { label: '仪器使用说明书' },
+              tube: { label: '测斜管使用说明书' },
+              standard: { label: '规范参考', url: standardPdfUrl },
             };
+            const tab = pdfMap[materialTab];
+            if (tab.url) {
+              return (
+                <iframe
+                  key={materialTab}
+                  src={`${tab.url}#toolbar=0&navpanes=0&view=FitH`}
+                  title={tab.label}
+                  className="w-full h-[70vh] border border-industrial-fg/20 bg-white"
+                />
+              );
+            }
             return (
               <div className="flex flex-col items-center justify-center border-2 border-dashed border-industrial-fg/20 bg-industrial-bg/30 min-h-[50vh] p-8 space-y-4">
                 <FileText size={48} className="opacity-20" />
                 <div className="text-center space-y-1">
-                  <div className="font-bold text-sm tracking-wider">{pdfLabels[materialTab]}</div>
+                  <div className="font-bold text-sm tracking-wider">{tab.label}</div>
                   <div className="text-[11px] opacity-50 font-mono">PDF 内容</div>
                 </div>
                 <div className="text-[10px] opacity-30 font-mono border border-industrial-fg/10 px-3 py-1.5 bg-white">
