@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
 import { createDevSampleStepResults } from './data/devSampleAnswerSheet';
+import { exportAllConnectivityGifs } from './lib/exportConnectivityGif';
 import bgPdfUrl from '../assets/工程资料X.pdf?url';
 import standardPdfUrl from '../assets/GB50497-建筑基坑工程监测技术标准-3.pdf?url';
 
@@ -444,6 +445,19 @@ function AppInner() {
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
             >
               多期曲线
+            </button>
+            <button
+              onClick={async (e) => {
+                const btn = e.currentTarget;
+                const original = btn.textContent;
+                btn.textContent = '生成中…';
+                btn.setAttribute('disabled', 'true');
+                try { await exportAllConnectivityGifs(); }
+                finally { btn.textContent = original; btn.removeAttribute('disabled'); }
+              }}
+              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors disabled:opacity-50"
+            >
+              导出通畅性 GIF
             </button>
             <WireframeToggle />
           </div>
