@@ -47,7 +47,7 @@ function AppInner() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.altKey && e.key.toLowerCase() === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.altKey && e.code === 'KeyK') {
         e.preventDefault();
         setDevVisible(v => !v);
       }
@@ -57,12 +57,19 @@ function AppInner() {
   }, []);
 
   const handleDevDragStart = useCallback((e: ReactMouseEvent) => {
-    e.preventDefault();
     const el = devPanelRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
     devDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    let dragging = false;
     const onMove = (ev: MouseEvent) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 4) return;
+        dragging = true;
+      }
+      ev.preventDefault();
       const x = ev.clientX - devDragOffset.current.x;
       const y = ev.clientY - devDragOffset.current.y;
       setDevPos({ right: window.innerWidth - x - rect.width, bottom: window.innerHeight - y - rect.height });
@@ -389,7 +396,7 @@ function AppInner() {
       {/* DEV Floating Panel */}
       {devVisible && <div
         ref={devPanelRef}
-        className="fixed z-[200] flex flex-col items-end space-y-2"
+        className="fixed z-[9999] flex flex-col items-end space-y-2 pointer-events-auto"
         style={{ right: devPos.right, bottom: devPos.bottom }}
       >
         {showDevPanel && (
