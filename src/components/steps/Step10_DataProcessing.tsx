@@ -81,7 +81,7 @@ const isValidFillInput = (value: string) => {
   return trimmed !== '' && !Number.isNaN(numericValue) && numericValue <= MAX_FILL_VALUE;
 };
 const formatDepthLabel = (depth: number) => `${Number.isInteger(depth) ? depth.toFixed(0) : depth.toFixed(1)}m`;
-const fillQuestionTitle = (depth: number) => `${formatDepthLabel(depth)} 本次位移量`;
+const fillQuestionTitle = (depth: number) => `${formatDepthLabel(depth)} 累计位移`;
 
 export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNext }) => {
   const { wireframeMode } = useWireframe();
@@ -334,7 +334,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
         area: { label: '测区值', userAnswer: snapshot.area, correctAnswer: '03', score: snapshot.area === '03' ? 1 : 0, maxScore: 1 },
         hole: { label: '孔号值', userAnswer: snapshot.hole, correctAnswer: '06', score: snapshot.hole === '06' ? 1 : 0, maxScore: 1 },
         '3-1-3': {
-          label: '本次位移量补全',
+          label: '累计位移补全',
           items: MISSING_ROWS.map(row => {
             return { depth: row.depth + 'm', userAnswer: Number(userFills[row.depth]), correctAnswer: row.displacement, tolerance: 0.05, correct: Math.abs(Number(userFills[row.depth]) - row.displacement) <= 0.05 };
           }),
@@ -445,7 +445,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
                 <th className="p-1.5 text-left">正测(mm)</th>
                 <th className="p-1.5 text-left">反测(mm)</th>
                 <th className="p-1.5 text-left">校验和(mm)</th>
-                <th className="p-1.5 text-left">本次位移量(mm)</th>
+                <th className="p-1.5 text-left">累计位移(mm)</th>
               </tr></thead>
               <tbody>
                 {dataLoaded ? latestRows.map(r => {
@@ -504,13 +504,13 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
       <Modal
         isOpen={activeFillDepth !== null}
         onClose={closeFillModal}
-        title={activeFillDepth !== null ? fillQuestionTitle(activeFillDepth) : '填写本次位移量'}
+        title={activeFillDepth !== null ? fillQuestionTitle(activeFillDepth) : '填写累计位移'}
       >
         <div className="space-y-6">
           <p className="text-xs leading-relaxed opacity-80">
             {activeFillDepth !== null
-              ? `请输入第${DATA_PERIOD}期 ${formatDepthLabel(activeFillDepth)} 深度的本次位移量。`
-              : '请输入本次位移量。'}
+              ? `请输入第${DATA_PERIOD}期 ${formatDepthLabel(activeFillDepth)} 深度的累计位移。`
+              : '请输入累计位移。'}
           </p>
           <div className="relative">
             <input
@@ -588,7 +588,7 @@ export const DataProcessing: React.FC<{ onNext: (data: any) => void }> = ({ onNe
           <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
             <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">
-              {'分析完成，检测到 ' + MISSING_DEPTHS.length + ' 处本次位移量数据缺失。'}
+              {'分析完成，检测到 ' + MISSING_DEPTHS.length + ' 处累计位移数据缺失。'}
             </p>
           </div>
           <div className="flex justify-center pt-2">
