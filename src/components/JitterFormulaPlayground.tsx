@@ -131,6 +131,12 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
   const target = calculateTarget();
   const currentDepth = depths[pointIndex - 1];
 
+  // 计算角度：sin(角度) = displayValue/2，即角度 = arcsin(displayValue/2)
+  // 根据实时抖动值动态计算角度
+  const currentValue = displayValue !== null ? displayValue : target;
+  const angleRad = Math.asin(Math.max(-1, Math.min(1, currentValue / 2)));
+  const angle = angleRad * (180 / Math.PI);
+
   return (
     <div className="fixed inset-0 z-[10000] flex flex-col" style={{ background: '#E4E3E0' }}>
       {/* Header */}
@@ -149,11 +155,17 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
             {/* 实时结果 */}
             <div className="bg-white border p-4" style={{ border: '1px solid #141414' }}>
               <div className="text-xs font-bold uppercase tracking-widest mb-3">实时结果</div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="p-4 border" style={{ background: '#e8e8e8', border: '1px solid #141414' }}>
                   <div className="text-xs font-bold uppercase mb-2" style={{ color: '#666' }}>displayValue（实时显示值）</div>
                   <div className="text-3xl font-bold" style={{ color: '#141414' }}>
                     {displayValue !== null ? displayValue.toFixed(3) : '--'} <span className="text-base ml-1" style={{ color: '#666' }}>mm</span>
+                  </div>
+                </div>
+                <div className="p-4 border" style={{ background: '#e8e8e8', border: '1px solid #141414' }}>
+                  <div className="text-xs font-bold uppercase mb-2" style={{ color: '#666' }}>测量角度</div>
+                  <div className="text-3xl font-bold" style={{ color: '#141414' }}>
+                    {angle.toFixed(2)}°
                   </div>
                 </div>
                 <div className="p-4 border text-xs leading-relaxed" style={{ background: '#f5f5f5', border: '1px solid #141414' }}>
