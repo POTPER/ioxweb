@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>读数抖动公式调参</title>
+  <style>
+    :root {
+      --industrial-bg: #E4E3E0;
+      --industrial-fg: #141414;
+      --industrial-surface: #FFFFFF;
+      --industrial-warning: #666666;
+      --industrial-info: #666666;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+      background: var(--industrial-bg);
+      color: var(--industrial-fg);
+      height: 100vh;
+      padding: 8px;
+      overflow: hidden;
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+      height: calc(100vh - 16px);
+    }
+    .card {
+      background: var(--industrial-surface);
+      border: 1px solid var(--industrial-fg);
+      box-shadow: 2px 2px 0px 0px rgba(20,20,20,1);
+      padding: 8px;
+      overflow-y: auto;
+      height: 100%;
+    }
+    h1 { font-size: 15px; margin: 0 0 3px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+    p { margin: 2px 0; color: #666; line-height: 1.2; font-size: 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 6px 8px;
+      margin-top: 6px;
+    }
+    label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    input, select {
+      width: 100%;
+      background: #fff;
+      border: 1px solid var(--industrial-fg);
+      color: var(--industrial-fg);
+      padding: 4px 6px;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--industrial-info);
+    }
+    .row { display: flex; justify-content: space-between; gap: 6px; }
+    .result {
+      margin-top: 6px;
+      border-top: 1px solid var(--industrial-fg);
+      padding-top: 6px;
+      display: grid;
+      gap: 6px;
+    }
+    .kpi {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      background: #f5f5f5;
+      padding: 6px;
+      line-height: 1.3;
+      font-size: 12px;
+    }
+    .big {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--industrial-info);
+    }
+    .formula {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      color: var(--industrial-fg);
+      background: #f5f5f5;
+      border: 2px solid var(--industrial-fg);
+      padding: 14px;
+      font-size: 11px;
+    }
+    .full { grid-column: 1 / -1; }
+    .hint { font-size: 10px; color: #666; }
+    .desc {
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: #f5f5f5;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--industrial-fg);
+    }
+    .actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn {
+      background: var(--industrial-fg);
+      color: var(--industrial-bg);
+      border: 1px solid var(--industrial-fg);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: all 0.1s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: translate(2px, 2px); box-shadow: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary {
+      background: var(--industrial-info);
+      border-color: var(--industrial-info);
+      color: #fff;
+    }
+    .section-title {
+      font-size: 12px;
+      color: var(--industrial-fg);
+      margin: 8px 0 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid var(--industrial-fg);
+      padding-bottom: 4px;
+    }
+    .rule-list {
+      margin: 0;
+      padding-left: 14px;
+      color: var(--industrial-fg);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .rule-list li { margin: 1px 0; }
+    .mini {
+      font-size: 9px;
+      color: #666;
+      margin-top: 1px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .readonly-field {
+      background: #e5e5e5;
+      border: 2px dashed var(--industrial-fg);
+      cursor: default;
+    }
+    .tag {
+      display: inline-block;
+      padding: 1px 3px;
+      border: 1px solid var(--industrial-fg);
+      font-size: 8px;
+      font-weight: 700;
+      margin-right: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tag.fixed { background: var(--industrial-fg); color: var(--industrial-bg); }
+    .tag.auto { background: var(--industrial-info); color: #fff; border-color: var(--industrial-info); }
+    .tag.dev-ref { background: var(--industrial-warning); color: #fff; border-color: var(--industrial-warning); }
+    .step-flow {
+      display: flex;
+      gap: 4px;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    .step {
+      flex: 1;
+      min-width: 60px;
+      padding: 4px;
+      background: #fff;
+      border: 1px solid var(--industrial-fg);
+      font-size: 9px;
+      text-align: center;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .step.active {
+      background: var(--industrial-fg);
+      color: var(--industrial-bg);
+    }
+    .highlight {
+      color: var(--industrial-info);
+      font-weight: 700;
+    }
+    .param-group {
+      background: #f5f5f5;
+      padding: 6px;
+      margin-bottom: 6px;
+    }
+    .param-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--industrial-fg);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .dev-note {
+      font-size: 9px;
+      color: #888;
+      font-style: italic;
+      margin-top: 1px;
+    }
+    @media (max-width: 900px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>读数抖动公式调参面板</h1>
+      <p>用于演示：目标值如何从数据表取值，以及抖动如何随时间衰减到稳定值。</p>
+
+      <div class="section-title">实时结果</div>
+      <div class="result" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <div class="kpi" style="background: #e8e8e8; border-color: var(--industrial-fg);">
+          <div style="font-size: 11px; color: var(--industrial-fg); margin-bottom: 4px; font-weight: 700; text-transform: uppercase;">displayValue（实时显示值）</div>
+          <span id="displayValue" class="big">--</span> <span style="font-size: 12px; color: var(--industrial-fg);">mm</span>
+        </div>
+        <div class="kpi" id="targetInfo"></div>
+      </div>
+
+      <div class="actions">
+        <button id="startBtn" class="btn primary" type="button">开始模拟</button>
+        <button id="okBtn" class="btn" type="button">OK 提交</button>
+        <button id="resetBtn" class="btn" type="button">重置</button>
+      </div>
+
+      <div class="section-title">参数设置</div>
+
+      <div class="param-group">
+        <div class="param-group-title">基础参数</div>
+        <div class="grid">
+          <div>
+            <label for="probeDirection">探头方向</label>
+            <select id="probeDirection">
+              <option value="up" selected>向上（从孔深上限开始，深度递减）</option>
+              <option value="down">向下（从0m开始，深度递增）</option>
+            </select>
+          </div>
+          <div>
+            <label for="measureType">测量类型</label>
+            <select id="measureType">
+              <option value="aPlus" selected>A+ 正测</option>
+              <option value="aMinus">A- 反测</option>
+            </select>
+          </div>
+          <div>
+            <label for="stepLength">步长 (m)</label>
+            <select id="stepLength">
+              <option value="0.5" selected>0.5</option>
+              <option value="1">1.0</option>
+              <option value="1.5">1.5</option>
+              <option value="2">2.0</option>
+            </select>
+          </div>
+          <div>
+            <label for="pointIndex">点位序号 <span class="tag auto">决定时长</span></label>
+            <select id="pointIndex">
+              <option value="1">1（30秒）</option>
+              <option value="2" selected>2（5秒）</option>
+              <option value="3">3（5秒）</option>
+              <option value="4">4（5秒）</option>
+              <option value="5">5（5秒）</option>
+            </select>
+            <div class="mini">表示当前取 5 个深度中的第几个点</div>
+            <div class="mini" style="color: var(--industrial-info);">点位1 = 第1个深度值（起始点），点位5 = 第5个深度值（终点）</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="card">
+      <h1>业务规则</h1>
+      <p>读数抖动的核心业务规则</p>
+      
+      <div class="kpi">
+        <ol class="rule-list">
+          <li><strong>抖动时长：</strong>第1个点位需要30秒稳定时间；第2-5个点位各需要5秒稳定时间</li>
+          <li><strong>数据来源：</strong>目标值取自监测数据表第5期，按正测或反测读取</li>
+          <li><strong>方向定义：</strong>向下表示从浅层向深层测量；向上表示从深层向浅层测量</li>
+          <li><strong>深度取值：</strong>根据设定的步长计算5个测量深度，按点位序号选择对应深度的数值</li>
+          <li><strong>稳定条件：</strong>当稳定时间到达时，抖动停止，显示值等于目标值</li>
+          <li><strong>自动结果：</strong>第6个点位开始进入自动稳定模式，直接显示稳定值，无需等待</li>
+        </ol>
+      </div>
+
+      <div class="section-title">业务流程说明</div>
+      <p>读数抖动的完整业务流程</p>
+      
+      <div class="section-title">Step 1: 确定测量时长</div>
+      <div class="desc">
+        根据点位序号决定抖动持续时间：第1个点位需要30秒稳定时间，第2-5个点位各需要5秒稳定时间。
+      </div>
+
+      <div class="section-title">Step 2: 获取目标值</div>
+      <div class="desc">
+        从监测数据表（第5期）中读取目标值。根据探头方向和步长计算出5个测量深度，然后按点位序号取出对应深度的数值。正测读A+，反测读A-。
+      </div>
+
+      <div class="section-title">Step 3: 计算初始抖动幅度</div>
+      <div class="desc">
+        根据目标值大小计算初始抖动范围，目标值越大抖动越大。同时设置最小抖动幅度，确保即使目标值很小也会有基础抖动效果。
+      </div>
+
+      <div class="section-title">Step 4: 模拟读数波动</div>
+      <div class="desc">
+        结合正弦波动和随机噪声模拟真实测量时的读数抖动。正弦波动模拟周期性变化，噪声模拟随机干扰。
+      </div>
+
+      <div class="section-title">Step 5: 抖动衰减</div>
+      <div class="desc">
+        随着时间推移，抖动幅度逐渐减小。衰减系数控制抖动消失的快慢，时间越长抖动越小，最终趋于稳定。
+      </div>
+
+      <div class="section-title">Step 6: 输出实时显示值</div>
+      <div class="desc">
+        在稳定时间内，显示值 = 目标值 + 抖动值；稳定时间结束后，抖动归零，显示值直接等于目标值。第6个值开始进入自动稳定模式。正测反测同理。
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let playTimer = null;
+    // 来自 monitoringPeriodData.csv 第5期（A+ / A-）
+    const rawTable = {
+      "0.0": { aPlus: 5.80, aMinus: -5.47 },
+      "0.5": { aPlus: 5.37, aMinus: -4.98 },
+      "2.0": { aPlus: 6.97, aMinus: -6.53 },
+      "3.0": { aPlus: 13.68, aMinus: -13.30 },
+      "4.0": { aPlus: 20.70, aMinus: -20.15 },
+      "4.5": { aPlus: 22.78, aMinus: -22.45 },
+      "6.0": { aPlus: 30.00, aMinus: -29.53 },
+      "1.0": { aPlus: 5.12, aMinus: -4.62 },
+      "1.5": { aPlus: 4.48, aMinus: -3.95 },
+      "2.5": { aPlus: 10.02, aMinus: -9.75 },
+      "8.0": { aPlus: 25.58, aMinus: -25.08 },
+      "16.0": { aPlus: -11.95, aMinus: 12.28 },
+      "17.0": { aPlus: -8.52, aMinus: 9.00 },
+      "18.0": { aPlus: -5.70, aMinus: 6.02 },
+      "20.0": { aPlus: 0.38, aMinus: 0.05 },
+      "19.5": { aPlus: -2.02, aMinus: 2.48 },
+      "19.0": { aPlus: -1.32, aMinus: 1.80 },
+      "18.5": { aPlus: -3.98, aMinus: 4.30 },
+      "14.0": { aPlus: -40.18, aMinus: 40.62 },
+      "12.0": { aPlus: -27.80, aMinus: 28.25 },
+      "20.0": { aPlus: 0.38, aMinus: 0.05 },
+      "17.5": { aPlus: -6.82, aMinus: 7.30 }
+    };
+
+    function clamp(v, min, max) {
+      return Math.min(Math.max(v, min), max);
+    }
+
+    function num(id) {
+      return Number(document.getElementById(id).value);
+    }
+
+    function fmt(value, digits = 4) {
+      return Number(value).toFixed(digits);
+    }
+
+    function buildDepthList(probeDirection, stepLength) {
+      const start = probeDirection === "up" ? 20 : 0;
+      const sign = probeDirection === "up" ? -1 : 1;
+      const list = [];
+      for (let i = 0; i < 5; i += 1) {
+        list.push(Number((start + sign * i * stepLength).toFixed(1)));
+      }
+      return list;
+    }
+
+    function resolveTarget(pointIndex, probeDirection, measureType, stepLength) {
+      const depthList = buildDepthList(probeDirection, stepLength);
+      const depth = depthList[Math.max(0, Math.min(pointIndex - 1, 4))];
+      const row = rawTable[depth.toFixed(1)];
+      const target = row ? row[measureType] : 0;
+      return { depth, target, found: Boolean(row), depthList };
+    }
+
+    function update() {
+      const pointIndex = num("pointIndex");
+      const probeDirection = document.getElementById("probeDirection").value;
+      const measureType = document.getElementById("measureType").value;
+      const stepLength = num("stepLength");
+      const elapsedSec = window.__elapsedSec || 0;
+      const k = num("k");
+      const ratio = 0.1;
+      const minAmp = clamp(num("minAmp"), 0, 1);
+      const sinFactor = num("sinFactor");
+      const sinFreq = num("sinFreq");
+      const noise = num("noise");
+      const { depth, target, found, depthList } = resolveTarget(pointIndex, probeDirection, measureType, stepLength);
+
+      document.getElementById("noiseValue").textContent = fmt(noise, 2);
+
+      const T = pointIndex === 1 ? 30 : 5;
+      const progress = clamp(elapsedSec / T, 0, 1);
+      const A = Math.max(Math.abs(target) * ratio, minAmp);
+      const oscillation = Math.sin(elapsedSec * sinFreq) * sinFactor + noise;
+      const jitter = A * Math.exp(-k * progress) * oscillation;
+      const displayValue = progress >= 1 ? target : target + jitter;
+
+      document.getElementById("displayValue").textContent = fmt(displayValue, 3);
+      document.getElementById("targetInfo").innerHTML =
+        "target 来源：监测数据表第5期 " + (measureType === "aPlus" ? "A+" : "A-") + "<br>" +
+        "探头方向：" + (probeDirection === "up" ? "向上（孔深上限起，深度递减）" : "向下（0m起，深度递增）") + "，步长：" + fmt(stepLength, 1) + "m<br>" +
+        "5个深度：" + depthList.map(d => fmt(d, 1) + "m").join(" / ") + "<br>" +
+        "当前点位：" + pointIndex + "，深度：" + fmt(depth, 1) + "m，target = " + fmt(target, 2) + " mm" + (found ? "" : "（该深度未配置，按0处理）");
+    }
+
+    const ids = [
+      "probeDirection", "measureType", "stepLength", "pointIndex", "k",
+      "minAmp", "sinFactor", "sinFreq", "noise"
+    ];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", update);
+      el.addEventListener("change", update);
+    });
+
+    function stopPlay(stateText) {
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = null;
+      }
+      document.getElementById("playState").textContent = "状态：" + stateText;
+    }
+
+    document.getElementById("startBtn").addEventListener("click", () => {
+      if (playTimer) return;
+      const pointIndex = num("pointIndex");
+      const T = pointIndex === 1 ? 30 : 5;
+      document.getElementById("playState").textContent = "状态：播放中";
+
+      playTimer = setInterval(() => {
+        const current = Number(window.__elapsedSec || 0);
+        const next = current + 0.1;
+        window.__elapsedSec = Number(Math.min(next, T).toFixed(1));
+        update();
+
+        if (next >= T) {
+          stopPlay("已完成");
+        }
+      }, 100);
+    });
+
+    document.getElementById("okBtn").addEventListener("click", () => {
+      stopPlay("已提交");
+      const displayValue = document.getElementById("displayValue").textContent;
+      console.log("提交的值：" + displayValue + " mm");
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      stopPlay("未播放");
+      window.__elapsedSec = 0;
+      update();
+    });
+
+    document.getElementById("pointIndex").addEventListener("change", () => {
+      stopPlay("未播放");
+    });
+
+    window.__elapsedSec = 0;
+    update();
+  </script>
+</body>
+</html>
