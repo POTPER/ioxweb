@@ -1,5 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from './Common';
+import { getMonitoringRawReading } from '../data/monitoringData';
+
+const DATA_PERIOD = 5;
+
+/**
+ * 测量角度（与 Step9 仪器读数屏一致）
+ *
+ * 几何模型：探头两轮间距（测段轮距）L = 500 mm，读数 d 为对边位移（mm）
+ *
+ *   sin(θ) = clamp(d / L, -1, 1)
+ *   θ(°)   = arcsin(sin(θ)) × 180 / π
+ *
+ * 输入 d 取实时 displayValue（mm）；稳定后即为 target。
+ */
+const GAUGE_LENGTH_MM = 500;
+const mmToAngle = (mm: number) =>
+  Math.asin(Math.min(Math.max(mm / GAUGE_LENGTH_MM, -1), 1)) * (180 / Math.PI);
+
+/**
+ * 模拟读数波动（仪器稳定过程中的 displayValue）
+ *
+ * 稳定时长 T：点位 1 → 30 s；点位 2–5 → 5 s
+ * 进度：progress = clamp(t / T, 0, 1)，t 为已稳定秒数 elapsedSec
+ *
+ * 抖动量：
+ *   envelope    = A_max × e^(-k × progress)     （A_max = 0.5 mm，k = 1.5）
+ *   oscillation = sin(ω × t)                      （ω = 2.5 rad/s）
+ *   jitter      = envelope × oscillation          （|jitter| ≤ 0.5 mm）
+ *
+ * 显示值：
+ *   progress < 1  → displayValue = target + jitter
+ *   progress ≥ 1  → displayValue = target（稳定，抖动归零）
+ */
+const JITTER_K = 1.5;
+const JITTER_A_MAX = 0.5;
+const JITTER_OMEGA = 2.5;
+
+function getStabilizeDuration(pointIndex: number) {
+  return pointIndex === 1 ? 30 : 5;
+}
+
+function computeReadingSimulation(target: number, elapsedSec: number, pointIndex: number) {
+  const T = getStabilizeDuration(pointIndex);
+  const progress = Math.min(Math.max(elapsedSec / T, 0), 1);
+  const envelope = JITTER_A_MAX * Math.exp(-JITTER_K * progress);
+  const oscillation = Math.sin(elapsedSec * JITTER_OMEGA);
+  const jitter = progress >= 1 ? 0 : envelope * oscillation;
+  const displayValue = progress >= 1 ? target : target + jitter;
+  return { T, progress, envelope, oscillation, jitter, displayValue };
+}
 
 interface JitterFormulaPlaygroundProps {
   onClose: () => void;
@@ -17,73 +67,45 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
 
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 监测数据表第5期数据
-  const rawTable: Record<string, { aPlus: number; aMinus: number }> = {
-    "0.0": { aPlus: 5.80, aMinus: -5.47 },
-    "0.5": { aPlus: 5.37, aMinus: -4.98 },
-    "2.0": { aPlus: 6.97, aMinus: -6.53 },
-    "3.0": { aPlus: 13.68, aMinus: -13.30 },
-    "4.5": { aPlus: 21.83, aMinus: -21.26 },
-  };
+  const MAX_DEPTH = 20;
 
-  // 抖动参数
-  const k = 1.5;
-  const ratio = 0.1;
-  const minAmp = 1;
-  const sinFactor = 0.6;
-  const sinFreq = 2.5;
-  const noise = 0.1;
-
-  // 计算深度列表
+  // 计算深度列表：向下从 0m 递增，向上从 20m 递减，共 5 个测点
   const calculateDepths = () => {
     const depths: number[] = [];
-    if (probeDirection === 'down') {
-      for (let i = 0; i < 5; i++) {
-        depths.push(i * stepLength);
-      }
-    } else {
-      const maxDepth = 4.5;
-      for (let i = 0; i < 5; i++) {
-        depths.push(maxDepth - i * stepLength);
-      }
+    for (let i = 0; i < 5; i++) {
+      const depth =
+        probeDirection === 'down'
+          ? i * stepLength
+          : MAX_DEPTH - i * stepLength;
+      depths.push(+depth.toFixed(1));
     }
     return depths;
   };
 
-  // 计算目标值
+  // 计算目标值（监测数据表第5期）
   const calculateTarget = () => {
     const depths = calculateDepths();
     const depth = depths[pointIndex - 1];
-    const depthStr = depth.toFixed(1);
-    const data = rawTable[depthStr];
-    if (!data) return 0;
-    return measureType === 'aPlus' ? data.aPlus : data.aMinus;
+    const reading = getMonitoringRawReading(DATA_PERIOD, depth);
+    if (!reading) return 0;
+    const value = measureType === 'aPlus' ? reading.aPlus : reading.aMinus;
+    return value ?? 0;
   };
 
-  // 计算displayValue
-  const calculateDisplayValue = () => {
-    const target = calculateTarget();
-    const T = pointIndex === 1 ? 30 : 5;
-    const progress = Math.min(Math.max(elapsedSec / T, 0), 1);
-    const A = Math.max(Math.abs(target) * ratio, minAmp);
-    const oscillation = Math.sin(elapsedSec * sinFreq) * sinFactor + noise;
-    const jitter = A * Math.exp(-k * progress) * oscillation;
-    const value = progress >= 1 ? target : target + jitter;
-    return value;
-  };
+  const calculateDisplayValue = () =>
+    computeReadingSimulation(calculateTarget(), elapsedSec, pointIndex).displayValue;
 
   // 开始模拟
   const startPlay = () => {
     if (isPlaying) return;
     setIsPlaying(true);
-    const T = pointIndex === 1 ? 30 : 5;
     setElapsedSec(0);
 
     playTimerRef.current = setInterval(() => {
       setElapsedSec(prev => {
         const next = prev + 0.1;
-        const maxNext = Math.min(next, T);
-        if (next >= T) {
+        const maxNext = Math.min(next, getStabilizeDuration(pointIndex));
+        if (next >= getStabilizeDuration(pointIndex)) {
           setIsPlaying(false);
           clearInterval(playTimerRef.current!);
         }
@@ -130,12 +152,10 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
   const depths = calculateDepths();
   const target = calculateTarget();
   const currentDepth = depths[pointIndex - 1];
+  const sim = computeReadingSimulation(target, elapsedSec, pointIndex);
 
-  // 计算角度：sin(角度) = displayValue/2，即角度 = arcsin(displayValue/2)
-  // 根据实时抖动值动态计算角度
   const currentValue = displayValue !== null ? displayValue : target;
-  const angleRad = Math.asin(Math.max(-1, Math.min(1, currentValue / 2)));
-  const angle = angleRad * (180 / Math.PI);
+  const angle = mmToAngle(currentValue);
 
   return (
     <div className="fixed inset-0 z-[10000] flex flex-col" style={{ background: '#E4E3E0' }}>
@@ -161,16 +181,31 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
                   <div className="text-3xl font-bold" style={{ color: '#141414' }}>
                     {displayValue !== null ? displayValue.toFixed(3) : '--'} <span className="text-base ml-1" style={{ color: '#666' }}>mm</span>
                   </div>
+                  <div className="mt-2 text-[10px] leading-relaxed font-mono" style={{ color: '#666' }}>
+                    {sim.progress >= 1 ? (
+                      <>稳定：displayValue = target</>
+                    ) : (
+                      <>
+                        target + jitter<br />
+                        jitter = {JITTER_A_MAX}×e^(-{JITTER_K}×{sim.progress.toFixed(2)})×sin({JITTER_OMEGA}×t)<br />
+                        = {sim.jitter.toFixed(3)} mm（t={elapsedSec.toFixed(1)}s，T={sim.T}s）
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="p-4 border" style={{ background: '#e8e8e8', border: '1px solid #141414' }}>
                   <div className="text-xs font-bold uppercase mb-2" style={{ color: '#666' }}>测量角度</div>
                   <div className="text-3xl font-bold" style={{ color: '#141414' }}>
                     {angle.toFixed(2)}°
                   </div>
+                  <div className="mt-2 text-[10px] leading-relaxed font-mono" style={{ color: '#666' }}>
+                    θ = arcsin(d / {GAUGE_LENGTH_MM}) × 180/π<br />
+                    d = {currentValue.toFixed(3)} mm → sin(θ) = {(currentValue / GAUGE_LENGTH_MM).toFixed(4)}
+                  </div>
                 </div>
                 <div className="p-4 border text-xs leading-relaxed" style={{ background: '#f5f5f5', border: '1px solid #141414' }}>
                   <div className="mb-1"><span className="font-bold">target 来源：</span>监测数据表第5期 {measureType === 'aPlus' ? 'A+' : 'A-'}</div>
-                  <div className="mb-1"><span className="font-bold">探头方向：</span>{probeDirection === 'up' ? '向上（孔深上限起，深度递减）' : '向下（0m起，深度递增）'}，步长：{stepLength}m</div>
+                  <div className="mb-1"><span className="font-bold">探头方向：</span>{probeDirection === 'up' ? `向上（${MAX_DEPTH}m 起，按步长递减）` : '向下（0m 起，按步长递增）'}，步长：{stepLength}m</div>
                   <div className="mb-1"><span className="font-bold">5个深度：</span>{depths.map(d => d.toFixed(1) + 'm').join(' / ')}</div>
                   <div><span className="font-bold">当前点位：</span>{pointIndex}，深度：{currentDepth.toFixed(1)}m，target = {target.toFixed(2)} mm</div>
                 </div>
@@ -214,8 +249,8 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
                     className="w-full border p-2 text-xs focus:outline-none focus:border-gray-400"
                     style={{ border: '1px solid #141414', padding: '6px 8px', fontSize: '13px' }}
                   >
-                    <option value="up">向上（从孔深上限开始，深度递减）</option>
-                    <option value="down">向下（从0m开始，深度递增）</option>
+                    <option value="up">向上（从 20m 起，按步长递减）</option>
+                    <option value="down">向下（从 0m 起，按步长递增）</option>
                   </select>
                 </div>
                 <div>
@@ -271,8 +306,8 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
                 <ol className="list-decimal list-inside space-y-2">
                   <li><strong>抖动时长：</strong>第1个点位需要30秒稳定时间；第2-5个点位各需要5秒稳定时间</li>
                   <li><strong>数据来源：</strong>目标值取自监测数据表第5期，按正测或反测读取</li>
-                  <li><strong>方向定义：</strong>向下表示从浅层向深层测量；向上表示从深层向浅层测量</li>
-                  <li><strong>深度取值：</strong>根据设定的步长计算5个测量深度，按点位序号选择对应深度的数值</li>
+                  <li><strong>方向定义：</strong>向下从 0m 起按步长递增；向上从 20m 起按步长递减，各取 5 个深度</li>
+                  <li><strong>深度取值：</strong>按点位序号取上述 5 个深度之一，再查表得到目标值</li>
                   <li><strong>稳定条件：</strong>当稳定时间到达时，抖动停止，显示值等于目标值</li>
                   <li><strong>自动结果：</strong>第6个点位开始进入自动稳定模式，直接显示稳定值，无需等待</li>
                 </ol>
@@ -282,6 +317,53 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
 
           {/* 右侧面板 */}
           <div className="space-y-4">
+            {/* 模拟读数波动公式 */}
+            <div className="bg-white border p-4" style={{ border: '1px solid #141414' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-3">模拟读数波动公式</div>
+              <div className="p-3 text-xs leading-relaxed space-y-2" style={{ background: '#f5f5f5' }}>
+                <p>
+                  <strong>目标值 target：</strong>监测数据表第 5 期，当前深度、正/反测（A+ / A−）。
+                </p>
+                <p>
+                  <strong>稳定时长 T：</strong>点位 1 → 30 s；点位 2–5 → 5 s。已用时 <strong>t</strong> = elapsedSec（模拟每 0.1 s 递增）。
+                </p>
+                <p className="font-mono text-[11px]">
+                  progress = clamp(t / T, 0, 1)<br />
+                  envelope = {JITTER_A_MAX} × e^(-{JITTER_K} × progress)<br />
+                  oscillation = sin({JITTER_OMEGA} × t)<br />
+                  jitter = envelope × oscillation<br />
+                  displayValue = target + jitter （progress &lt; 1）<br />
+                  displayValue = target （progress ≥ 1，稳定）
+                </p>
+                <p>
+                  <strong>幅度：</strong>|jitter| ≤ {JITTER_A_MAX} mm（与 target 大小无关）；progress 越大，包络越小，读数越快收敛到 target。
+                </p>
+                <p style={{ color: '#666' }}>
+                  当前：progress={sim.progress.toFixed(2)}，jitter={sim.jitter.toFixed(3)} mm，target={target.toFixed(2)} mm → displayValue={currentValue.toFixed(3)} mm
+                </p>
+              </div>
+            </div>
+
+            {/* 角度计算公式 */}
+            <div className="bg-white border p-4" style={{ border: '1px solid #141414' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-3">角度计算公式</div>
+              <div className="p-3 text-xs leading-relaxed space-y-2" style={{ background: '#f5f5f5' }}>
+                <p>
+                  <strong>模型：</strong>测斜仪两轮间距（测段轮距）<strong>L = 500 mm</strong>（对应 0.5 m 量测间距），读数 <strong>d</strong>（mm）为对边位移。
+                </p>
+                <p className="font-mono text-[11px]">
+                  sin(θ) = clamp(d / L, −1, 1)<br />
+                  θ(°) = arcsin(d / L) × 180 / π
+                </p>
+                <p>
+                  <strong>代入：</strong>d 取实时 <strong>displayValue</strong>（含抖动）；稳定后 d = target。与 Step9 读数仪界面算法一致。
+                </p>
+                <p style={{ color: '#666' }}>
+                  例：d = 0.380 mm → sin(θ) = 0.00076 → θ ≈ 0.04°（非 d/2，斜边不是 2 mm）。
+                </p>
+              </div>
+            </div>
+
             {/* 业务流程说明 */}
             <div className="bg-white border p-4" style={{ border: '1px solid #141414' }}>
               <div className="text-xs font-bold uppercase tracking-widest mb-3">业务流程说明</div>
@@ -295,31 +377,19 @@ export function JitterFormulaPlayground({ onClose }: JitterFormulaPlaygroundProp
                 <div>
                   <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 2: 获取目标值</div>
                   <div className="p-3 leading-relaxed" style={{ background: '#f5f5f5' }}>
-                    从监测数据表（第5期）中读取目标值。根据探头方向和步长计算出5个测量深度，然后按点位序号取出对应深度的数值。正测读A+，反测读A-。
+                    从监测数据表（第5期）读取目标值。向下：0、步长、2×步长…共 5 点；向上：20、20−步长、20−2×步长…共 5 点。正测读 A+，反测读 A−。
                   </div>
                 </div>
                 <div>
-                  <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 3: 计算初始抖动幅度</div>
-                  <div className="p-3 leading-relaxed" style={{ background: '#f5f5f5' }}>
-                    根据目标值大小计算初始抖动范围，目标值越大抖动越大。同时设置最小抖动幅度，确保即使目标值很小也会有基础抖动效果。
+                  <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 3–6: 读数波动与显示值</div>
+                  <div className="p-3 leading-relaxed font-mono text-[11px]" style={{ background: '#f5f5f5' }}>
+                    progress = t / T<br />
+                    jitter = {JITTER_A_MAX}×e^(-{JITTER_K}×progress)×sin({JITTER_OMEGA}×t)<br />
+                    displayValue = target + jitter（t &lt; T）<br />
+                    displayValue = target（t ≥ T）
                   </div>
-                </div>
-                <div>
-                  <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 4: 模拟读数波动</div>
-                  <div className="p-3 leading-relaxed" style={{ background: '#f5f5f5' }}>
-                    结合正弦波动和随机噪声模拟真实测量时的读数抖动。正弦波动模拟周期性变化，噪声模拟随机干扰。
-                  </div>
-                </div>
-                <div>
-                  <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 5: 抖动衰减</div>
-                  <div className="p-3 leading-relaxed" style={{ background: '#f5f5f5' }}>
-                    随着时间推移，抖动幅度逐渐减小。衰减系数控制抖动消失的快慢，时间越长抖动越小，最终趋于稳定。
-                  </div>
-                </div>
-                <div>
-                  <div className="font-bold uppercase mb-2" style={{ color: '#666' }}>Step 6: 输出实时显示值</div>
-                  <div className="p-3 leading-relaxed" style={{ background: '#f5f5f5' }}>
-                    在稳定时间内，显示值 = 目标值 + 抖动值；稳定时间结束后，抖动归零，显示值直接等于目标值。第6个值开始进入自动稳定模式。正测反测同理。
+                  <div className="p-3 mt-2 leading-relaxed text-[11px]" style={{ background: '#f5f5f5' }}>
+                    详见左侧「模拟读数波动公式」；第 6 个点位起为自动稳定，本页仅模拟前 5 个点位。
                   </div>
                 </div>
               </div>
