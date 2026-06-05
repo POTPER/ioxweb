@@ -19,6 +19,7 @@ import { StartPage } from './components/StartPage';
 import { FrameworkGuide } from './components/FrameworkGuide';
 import { MultiPeriodChart } from './components/MultiPeriodChart';
 import { JitterFormulaPlayground } from './components/JitterFormulaPlayground';
+import { Step9SpecStudio } from './components/Step9SpecStudio';
 import { Modal, Button } from './components/Common';
 import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
@@ -44,6 +45,7 @@ function AppInner() {
   const [showFrameworkGuide, setShowFrameworkGuide] = useState(false);
   const [showMultiPeriodChart, setShowMultiPeriodChart] = useState(false);
   const [showJitterPlayground, setShowJitterPlayground] = useState(false);
+  const [showStep9SpecStudio, setShowStep9SpecStudio] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(() => new Set(loadTrainingSession().completedSteps as StepId[]));
   const [allUnlocked, setAllUnlocked] = useState(false);
   const devPanelRef = useRef<HTMLDivElement>(null);
@@ -411,6 +413,7 @@ function AppInner() {
       {showMultiPeriodChart && <MultiPeriodChart onClose={() => setShowMultiPeriodChart(false)} />}
       {/* Jitter Formula Playground */}
       {showJitterPlayground && <JitterFormulaPlayground onClose={() => setShowJitterPlayground(false)} />}
+      {showStep9SpecStudio && <Step9SpecStudio onClose={() => setShowStep9SpecStudio(false)} />}
       {/* DEV Floating Panel */}
       {devVisible && <div
         ref={devPanelRef}
@@ -449,6 +452,12 @@ function AppInner() {
               className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
             >
               多期曲线
+            </button>
+            <button
+              onClick={() => { setShowStep9SpecStudio(true); setShowDevPanel(false); }}
+              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
+            >
+              Step9 产品说明
             </button>
             <button
               onClick={() => { setShowJitterPlayground(true); setShowDevPanel(false); }}

@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>读数仪交互逻辑说明 — Q09</title>
+  <style>
+    :root {
+      --industrial-bg: #E4E3E0;
+      --industrial-fg: #141414;
+      --industrial-surface: #FFFFFF;
+      --callout-bg: #FFF8E1;
+      --callout-border: #F9A825;
+      --lcd-bg: #E4E3E0;
+      --highlight: #141414;
+      --highlight-fg: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+      background: var(--industrial-bg);
+      color: var(--industrial-fg);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; padding: 16px 20px 40px; }
+    .toolbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 2px solid var(--industrial-fg);
+    }
+    .toolbar h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .toolbar .meta { font-size: 11px; opacity: 0.6; font-family: ui-monospace, monospace; }
+    .btn-print {
+      background: var(--industrial-fg); color: #fff; border: none;
+      padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+    }
+    .btn-print:hover { opacity: 0.9; }
+    .section-title {
+      font-size: 14px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; margin: 24px 0 12px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--industrial-fg);
+    }
+    .card {
+      background: var(--industrial-surface);
+      border: 1px solid var(--industrial-fg);
+      box-shadow: 3px 3px 0 rgba(20,20,20,1);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    /* Part A: layout overview */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 10px;
+      min-height: 320px;
+    }
+    .zone {
+      border: 2px dashed var(--industrial-fg);
+      padding: 10px;
+      position: relative;
+      background: #fafafa;
+    }
+    .zone-label {
+      position: absolute; top: 6px; left: 8px;
+      font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace;
+      background: var(--industrial-fg); color: #fff; padding: 2px 6px;
+    }
+    .zone-right { display: flex; flex-direction: column; gap: 10px; }
+    .zone ul { margin: 28px 0 0; padding-left: 18px; font-size: 11px; }
+    .zone .unlock { font-size: 10px; opacity: 0.55; margin-top: 8px; }
+    .device-mock {
+      flex: 1; min-height: 140px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 2px solid var(--industrial-fg); background: #fff;
+      font-family: ui-monospace, monospace; font-size: 10px;
+    }
+    .device-mock .lcd-mini {
+      width: 80%; height: 48px; background: var(--lcd-bg);
+      border: 1px solid var(--industrial-fg); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .diff-list { font-size: 12px; margin: 0; padding-left: 18px; }
+    .diff-list li { margin-bottom: 4px; }
+    /* Part B: screen cards */
+    .flow-board {
+      display: flex; flex-wrap: wrap; gap: 16px;
+      align-items: flex-start;
+    }
+    .screen-card {
+      flex: 1 1 340px;
+      max-width: 100%;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 10px;
+      page-break-inside: avoid;
+    }
+    .screen-device {
+      border: 2px solid var(--industrial-fg);
+      background: #fff;
+      padding: 8px;
+    }
+    .screen-order {
+      font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace;
+      margin-bottom: 4px; opacity: 0.6;
+    }
+    .screen-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+    .lcd {
+      background: var(--lcd-bg);
+      border: 1px solid var(--industrial-fg);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      padding: 6px 8px;
+      min-height: 100px;
+      line-height: 1.35;
+    }
+    .lcd .hl { background: var(--highlight); color: var(--highlight-fg); margin: 0 -4px; padding: 0 4px; }
+    .lcd .dim { opacity: 0.45; }
+    .nav-keys {
+      display: flex; gap: 4px; justify-content: center; margin-top: 8px;
+    }
+    .nav-keys span {
+      width: 28px; height: 28px; border: 2px solid var(--industrial-fg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; background: var(--industrial-bg);
+    }
+    .nav-keys .ok { background: var(--industrial-fg); color: #fff; }
+    .callouts { display: flex; flex-direction: column; gap: 8px; }
+    .callout {
+      background: var(--callout-bg);
+      border-left: 4px solid var(--callout-border);
+      padding: 8px 10px;
+      font-size: 11px;
+    }
+    .callout h4 {
+      margin: 0 0 6px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .callout ul { margin: 0; padding-left: 16px; }
+    .callout li { margin-bottom: 3px; }
+    .callout table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .callout th, .callout td { border: 1px solid rgba(0,0,0,0.15); padding: 3px 5px; text-align: left; vertical-align: top; }
+    .callout th { background: rgba(0,0,0,0.06); width: 28%; }
+    .transitions { font-size: 10px; margin-top: 6px; opacity: 0.8; }
+    .transitions span { display: inline-block; margin-right: 8px; }
+    .controls-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .controls-table th, .controls-table td { border: 1px solid var(--industrial-fg); padding: 6px 8px; text-align: left; }
+    .controls-table th { background: #f0f0f0; width: 22%; }
+    .mermaid-fallback {
+      font-family: ui-monospace, monospace; font-size: 10px;
+      white-space: pre-wrap; background: #f5f5f5; padding: 10px;
+      border: 1px solid var(--industrial-fg);
+    }
+    @media print {
+      body { background: #fff; }
+      .toolbar .btn-print { display: none; }
+      .page { padding: 0; max-width: none; }
+      .screen-card { break-inside: avoid; }
+      .callout { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="toolbar">
+      <div>
+        <h1>读数仪交互逻辑说明</h1>
+        <div class="meta">Q09 · acq.instrument · 生成自 step09InteractionFlows.ts</div>
+      </div>
+      <button class="btn-print" onclick="window.print()">打印 / 导出 PDF</button>
+    </div>
+
+    <div class="section-title">Part A — 实训界面总览</div>
+    <div class="card layout-grid" id="layout-overview"></div>
+
+    <div class="section-title">与参考图的差异</div>
+    <div class="card"><ul class="diff-list" id="ref-diffs"></ul></div>
+
+    <div class="section-title">物理控件一览</div>
+    <div class="card"><table class="controls-table" id="controls-table"></table></div>
+
+    <div class="section-title">Part B — LCD 逐屏交互板</div>
+    <div class="flow-board" id="flow-board"></div>
+
+    <div class="section-title">Part C — LCD 界面总流转</div>
+    <div class="card mermaid-fallback" id="flow-mermaid"></div>
+  </div>
+
+  <script id="step09-data" type="application/json">{
+  "layoutZones": [
+    {
+      "id": "D",
+      "label": "D1–D3 测斜管剖面图",
+      "cols": 7,
+      "items": [
+        "深度刻度 0–20 m",
+        "探头位置动画",
+        "测量间距按钮",
+        "▲ 上提 / ▼ 下放",
+        "📋 采集表"
+      ],
+      "unlock": "fieldUnlocked=true 后可操作"
+    },
+    {
+      "id": "M",
+      "label": "M1–M3 测斜管平面图",
+      "cols": 5,
+      "items": [
+        "探头旋转 ±90°",
+        "确定朝向",
+        "N/E/S/W 靠齐热点"
+      ],
+      "unlock": "fieldUnlocked=true 后可操作"
+    },
+    {
+      "id": "I",
+      "label": "I1–I7 读数仪本体",
+      "cols": 5,
+      "items": [
+        "LCD 屏",
+        "← OK ↑ ↓ 导航键",
+        "DC 充电口",
+        "探头口（线材）",
+        "USB 口",
+        "⏻ 电源键"
+      ],
+      "unlock": "始终可操作（关机时仅电源/探头口）"
+    }
+  ],
+  "physicalControls": [
+    {
+      "control": "← 返回",
+      "action": "params/probe/time/remeasure/confirm 屏返回主菜单；收工阶段无效"
+    },
+    {
+      "control": "OK 确认",
+      "action": "进入子菜单、保存参数、开始测量、稳定后记点"
+    },
+    {
+      "control": "↑ / ↓",
+      "action": "主菜单/字段列表移动光标；编辑态下增减数值或切换选项"
+    },
+    {
+      "control": "⏻ 电源",
+      "action": "开机（3s 启动画面）/ 关机；phase≥5 收工时先关机"
+    },
+    {
+      "control": "探头口",
+      "action": "未连接时打开线材选型弹窗；phase≥5 收工时拔线"
+    },
+    {
+      "control": "剖面 ▲ 上提",
+      "action": "上提提示态下推进下一手测点；否则浏览深度"
+    },
+    {
+      "control": "剖面 ▼ 下放",
+      "action": "浏览深度（自动采集中可改显示，不记读数）"
+    },
+    {
+      "control": "平面图热点",
+      "action": "确认朝向后点击 N/E/S/W 选择线材靠齐方位"
+    }
+  ],
+  "referenceDiffs": [
+    "现版无 + / − / 红色 Record 键；参数调节用 ↑↓",
+    "菜单为「测孔参数设置」「探头设置」，非参考图中的测站/传感器参数",
+    "记点动作为稳定倒计时结束后按 OK，非 Record 键",
+    "现场布置（朝向、靠齐、间距）在 Web 平面图/剖面区完成，非 LCD 内设置"
+  ],
+  "flowMermaid": "flowchart LR\n  off[\"关机 off\"] --> boot[\"启动 boot\"]\n  boot --> main[\"主菜单 main\"]\n  main --> params[\"测孔参数 params\"]\n  main --> probe[\"探头设置 probe\"]\n  main --> time[\"时间 time-setting\"]\n  main --> remeasure[\"补测 remeasure\"]\n  main --> cfwd[\"正测确认 confirm-fwd\"]\n  params --> main\n  probe --> main\n  time --> main\n  remeasure --> main\n  cfwd --> collF[\"正向采集 collect\"]\n  collF --> crev[\"反测确认 confirm-rev\"]\n  crev --> collR[\"反向采集 collect\"]\n  collR --> main\n  main --> cleanup[\"收工 phase6\"]\n  cleanup --> submit[\"自动提交\"]",
+  "screens": [
+    {
+      "id": "S01",
+      "order": 1,
+      "title": "关机 / 线材连接",
+      "lcdScreen": "off",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "（LCD 熄灭）",
+        "",
+        "探头口: ○ 未连接"
+      ],
+      "initialState": [
+        "phase = 1",
+        "isPoweredOn = false，lcdScreen = off",
+        "isConnected = false",
+        "剖面图 / 平面图灰色禁用（fieldUnlocked = false）"
+      ],
+      "interactions": [
+        {
+          "control": "点击探头口",
+          "action": "打开线材选型弹窗（四选一图文卡）"
+        },
+        {
+          "control": "弹窗确认",
+          "action": "isConnected = true，探头口变蓝 ●；记录 acq.instrument.cable"
+        },
+        {
+          "control": "⏻ 电源（未接线）",
+          "action": "可开机但记录 powerBeforeConnect（错误顺序）"
+        },
+        {
+          "control": "⏻ 电源（已接线）",
+          "action": "记录 connectBeforePower（正确顺序），进入启动画面"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "启动画面",
+          "when": "已接线后按电源键开机"
+        },
+        {
+          "to": "线材弹窗",
+          "when": "点击未连接的探头口"
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "order": 2,
+      "title": "启动画面",
+      "lcdScreen": "boot",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "",
+        "欢迎使用",
+        "数字式测斜仪",
+        ""
+      ],
+      "initialState": [
+        "booting = true，约 3 秒",
+        "导航键无效"
+      ],
+      "interactions": [
+        {
+          "control": "（无）",
+          "action": "自动计时，不可操作"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "主菜单",
+          "when": "3 秒后自动进入 main"
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "order": 3,
+      "title": "主菜单",
+      "lcdScreen": "main",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "欢迎使用          MM-DD HH:MM",
+        "> 1. 开始新的测量",
+        "  2. 测孔参数设置",
+        "  3. 探头设置",
+        "  4. 补测数据点",
+        "  5. 时间设置"
+      ],
+      "highlightLine": 1,
+      "initialState": [
+        "phase ≥ 2（已开机；接线+开机后自动 phase 2）",
+        "cursor = 0，fieldUnlocked = false",
+        "paramsSaved / probeSaved 未齐时仍可浏览菜单"
+      ],
+      "interactions": [
+        {
+          "control": "↑ / ↓",
+          "action": "在五项菜单间移动光标（循环）"
+        },
+        {
+          "control": "OK · 1",
+          "action": "清空采集表 → confirm-fwd，fieldUnlocked = true"
+        },
+        {
+          "control": "OK · 2",
+          "action": "进入测孔参数设置 params"
+        },
+        {
+          "control": "OK · 3",
+          "action": "进入探头设置 probe"
+        },
+        {
+          "control": "OK · 4",
+          "action": "进入补测 remeasure"
+        },
+        {
+          "control": "OK · 5",
+          "action": "进入时间设置 time-setting"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "测孔参数",
+          "when": "cursor=1，OK"
+        },
+        {
+          "to": "探头设置",
+          "when": "cursor=2，OK"
+        },
+        {
+          "to": "正测确认",
+          "when": "cursor=0，OK"
+        },
+        {
+          "to": "补测",
+          "when": "cursor=3，OK"
+        },
+        {
+          "to": "时间设置",
+          "when": "cursor=4，OK"
+        }
+      ],
+      "webAreaNotes": [
+        "phase 2 且 paramsSaved && probeSaved 后自动进入 phase 3"
+      ]
+    },
+    {
+      "id": "S04",
+      "order": 4,
+      "title": "测孔参数设置",
+      "lcdScreen": "params",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "测孔参数设置      MM-DD HH:MM",
+        "> 测区编号:        01",
+        "  孔  号:          01",
+        "  孔  深:          25 m",
+        "      [保存]"
+      ],
+      "highlightLine": 1,
+      "initialState": [
+        "默认测区 01 / 孔 01 / 孔深 25 m（故意错误）",
+        "任务正确值：03 / 06 / 20 m",
+        "cursor = 0，editingField = null"
+      ],
+      "interactions": [
+        {
+          "control": "↑ / ↓",
+          "action": "在四个焦点（三字段 + 保存）间移动"
+        },
+        {
+          "control": "OK（字段）",
+          "action": "进入编辑态 editingField = cursor"
+        },
+        {
+          "control": "↑ / ↓（编辑）",
+          "action": "测区 01–05、孔号 01–10、孔深 1–50 增减"
+        },
+        {
+          "control": "OK（编辑）",
+          "action": "退出编辑态"
+        },
+        {
+          "control": "OK（保存）",
+          "action": "记录 area/hole/depth，paramsSaved=true，回主菜单"
+        },
+        {
+          "control": "←",
+          "action": "不保存，回主菜单 cursor=1"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "主菜单",
+          "when": "保存或 ← 返回"
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "order": 5,
+      "title": "探头设置",
+      "lcdScreen": "probe",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "探头设置          MM-DD HH:MM",
+        "> 方向:            向下",
+        "  校正:            0.00",
+        "  步长:            1.0m",
+        "      [保存]"
+      ],
+      "highlightLine": 1,
+      "initialState": [
+        "默认方向向下、步长 1.0 m（故意错误）",
+        "任务正确值：向上 / 0.5 m",
+        "校正默认 0.00，范围 ±9.99"
+      ],
+      "interactions": [
+        {
+          "control": "↑ / ↓",
+          "action": "在四个焦点间移动"
+        },
+        {
+          "control": "OK（字段）",
+          "action": "进入编辑态"
+        },
+        {
+          "control": "↑ / ↓（方向）",
+          "action": "切换 向上 / 向下"
+        },
+        {
+          "control": "↑ / ↓（校正）",
+          "action": "步进 ±0.01"
+        },
+        {
+          "control": "↑ / ↓（步长）",
+          "action": "在 0.5 / 1.0 / 1.5 / 2.0 m 循环"
+        },
+        {
+          "control": "OK（保存）",
+          "action": "记录 probeDirection/stepLength，probeSaved=true，回主菜单"
+        },
+        {
+          "control": "←",
+          "action": "不保存，回主菜单 cursor=2"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "主菜单",
+          "when": "保存或 ← 返回；两参数均已保存后 phase→3"
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "order": 6,
+      "title": "时间设置",
+      "lcdScreen": "time-setting",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "时间设置          MM-DD HH:MM",
+        "> 年:              2026",
+        "  月:              06",
+        "  日:              04",
+        "  时:              12",
+        "  分:              00",
+        "      [确认]"
+      ],
+      "highlightLine": 1,
+      "initialState": [
+        "显示系统当前时间（只读，不可编辑）",
+        "不参与评分"
+      ],
+      "interactions": [
+        {
+          "control": "↑ / ↓",
+          "action": "在六个时间字段与 [确认] 间移动光标"
+        },
+        {
+          "control": "OK（确认）",
+          "action": "回主菜单 cursor=4"
+        },
+        {
+          "control": "←",
+          "action": "回主菜单 cursor=4"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "主菜单",
+          "when": "确认或 ←"
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "order": 7,
+      "title": "正向测量确认",
+      "lcdScreen": "confirm-fwd",
+      "wireframeRefs": "M1-M3, D1-D3, I1-I7",
+      "mockupLines": [
+        "即将进行         MM-DD HH:MM",
+        "",
+        "    正向测量",
+        "",
+        "  按OK键开始测量",
+        "  请先完成现场布置"
+      ],
+      "initialState": [
+        "fieldUnlocked = true",
+        "probeRotation = 0°，rotationConfirmed = false",
+        "cableAlignment = null，monitorInterval 未设",
+        "未完成布置时 OK 无效，LCD 显示红色提示"
+      ],
+      "interactions": [
+        {
+          "control": "平面图 ±90°",
+          "action": "调整探头旋转 0/90/180/270°"
+        },
+        {
+          "control": "平面图 确定",
+          "action": "rotationConfirmed = true，显示 N/E/S/W 热点"
+        },
+        {
+          "control": "热点 N/E/S/W",
+          "action": "二次确认后写入 cableAlignment（正测正确：W）"
+        },
+        {
+          "control": "剖面 测量间距",
+          "action": "弹窗单选 0.5/1.0/1.5/2.0 m（正确 0.5 m）"
+        },
+        {
+          "control": "OK（布置完成）",
+          "action": "记录朝向/靠齐/间距 → collect，phase→4，深度 20.0 m，启动 30s 稳定"
+        },
+        {
+          "control": "←",
+          "action": "回主菜单，fieldUnlocked = false"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "正向采集",
+          "when": "rotationConfirmed && cableAlignment && monitorInterval，按 OK"
+        },
+        {
+          "to": "主菜单",
+          "when": "← 返回"
+        }
+      ],
+      "webAreaNotes": [
+        "正测要求 A 向（0°）+ W 靠齐 + 0.5 m 间距"
+      ]
+    },
+    {
+      "id": "S08",
+      "order": 8,
+      "title": "正向采集",
+      "lcdScreen": "collect",
+      "wireframeRefs": "D1-D3, I1-I7",
+      "mockupLines": [
+        "正向测量         MM-DD HH:MM",
+        " 20.0m              孔06",
+        " +0.42°             组01",
+        " +3.65mm            ☒01"
+      ],
+      "initialState": [
+        "measureType = forward，manualPoint = 0",
+        "手测 5 点：20.0 / 19.5 / 19.0 / 18.5 / 18.0 m",
+        "首点稳定 30 s，其余各 5 s；稳定前读数带抖动"
+      ],
+      "interactions": [
+        {
+          "control": "（等待）",
+          "action": "倒计时结束 → isStable = true"
+        },
+        {
+          "control": "OK（稳定后）",
+          "action": "记录当前深度读数到采集表"
+        },
+        {
+          "control": "剖面 ▲ 上提",
+          "action": "showMovePrompt 时出现；推进下一测点并重启倒计时"
+        },
+        {
+          "control": "OK（上提提示态）",
+          "action": "亦可确认（与 ▲ 配合）"
+        },
+        {
+          "control": "第 5 点 OK 后",
+          "action": "自动采集剩余深度（约 1.5 s）"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "上提提示",
+          "when": "manualPoint < 4，记点后"
+        },
+        {
+          "to": "反向确认",
+          "when": "第 5 点记点后 autoCollect 完成"
+        }
+      ],
+      "webAreaNotes": [
+        "深度公式（向上）：currentDepth = 20 − manualPoint × stepLength",
+        "读数来源：monitoringPeriodData 第 6 期 A+"
+      ]
+    },
+    {
+      "id": "S09",
+      "order": 9,
+      "title": "反向测量确认",
+      "lcdScreen": "confirm-rev",
+      "wireframeRefs": "M1-M3, D1-D3, I1-I7",
+      "mockupLines": [
+        "即将进行         MM-DD HH:MM",
+        "",
+        "    反向测量",
+        "",
+        "  按OK键开始测量",
+        "  请重新选择靠齐方位"
+      ],
+      "initialState": [
+        "正测 autoCollect 后约 1.5 s 自动进入",
+        "probeRotation = 180°，rotationConfirmed = true（A−）",
+        "cableAlignment 已清空，需重新选择",
+        "monitorInterval 可沿用正测已设值"
+      ],
+      "interactions": [
+        {
+          "control": "平面图热点",
+          "action": "重新选择靠齐方位"
+        },
+        {
+          "control": "OK（靠齐已选）",
+          "action": "开始反测 collect；深度 20.0 m，30s 稳定"
+        },
+        {
+          "control": "←",
+          "action": "回主菜单"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "反向采集",
+          "when": "cableAlignment 已选，按 OK"
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "order": 10,
+      "title": "反向采集 / 自动补全",
+      "lcdScreen": "collect",
+      "wireframeRefs": "D1-D3, I1-I7",
+      "mockupLines": [
+        "反向测量         MM-DD HH:MM",
+        "",
+        "  正在测量剩余测点…",
+        "  （autoCollecting）"
+      ],
+      "initialState": [
+        "手测 5 点流程同正测，读数取 A−",
+        "12.5 m 反测读数故意 +8 mm（校验和超 5 mm）",
+        "第 5 点记点后 autoCollect 填充全部反测列"
+      ],
+      "interactions": [
+        {
+          "control": "手测阶段",
+          "action": "同正向采集（OK 记点 + ▲ 上提）"
+        },
+        {
+          "control": "autoCollecting",
+          "action": "LCD 显示「正在测量剩余测点…」，导航键无效"
+        },
+        {
+          "control": "完成后",
+          "action": "回主菜单，phase→5，fieldUnlocked=false"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "主菜单",
+          "when": "反测 autoCollect 完成"
+        },
+        {
+          "to": "补测",
+          "when": "学员发现 12.5 m 校验和异常，主菜单选「补测数据点」"
+        }
+      ],
+      "webAreaNotes": [
+        "校验和 = round(正测 + 反测, 2) mm；阈值 5 mm",
+        "可点 📋 采集表查看全表 41 行"
+      ]
+    },
+    {
+      "id": "S11",
+      "order": 11,
+      "title": "补测数据点",
+      "lcdScreen": "remeasure",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "补测位点          MM-DD HH:MM",
+        "> 组号:            05",
+        "  深度:            3.0m",
+        "  方向:            正测",
+        "    [开始补测]"
+      ],
+      "highlightLine": 1,
+      "initialState": [
+        "默认组号 05 / 深度 3.0 m / 方向 正测（故意偏离）",
+        "任务正确：05 组 / 12.5 m / 反测",
+        "phase ≥ 5 可用"
+      ],
+      "interactions": [
+        {
+          "control": "↑ / ↓",
+          "action": "在组号/深度/方向/[开始补测] 间移动"
+        },
+        {
+          "control": "OK（字段）",
+          "action": "进入编辑；组号 01–99，深度 0–20 步进 0.5 m"
+        },
+        {
+          "control": "↑ / ↓（方向）",
+          "action": "切换 正测 / 反测"
+        },
+        {
+          "control": "OK（开始补测）",
+          "action": "记录三组参数 → collect 模拟 5 s → 用无偏差真值覆盖 → 回主菜单"
+        },
+        {
+          "control": "←",
+          "action": "回主菜单 cursor=3"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "采集（模拟）",
+          "when": "开始补测"
+        },
+        {
+          "to": "主菜单",
+          "when": "补测完成或 ←"
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "order": 12,
+      "title": "收工",
+      "lcdScreen": "main / off",
+      "wireframeRefs": "I1-I7",
+      "mockupLines": [
+        "（phase 5 完成后）",
+        "点击「进入收工阶段」→ phase 6",
+        "",
+        "1. ⏻ 关机 → LCD 熄灭",
+        "2. 探头口拔线 → ○",
+        "→ 自动提交本步成绩"
+      ],
+      "initialState": [
+        "反测完成且回主菜单后 phase = 5",
+        "点击收工按钮后 phase = 6",
+        "cleanupDone.power / cable 均为 false"
+      ],
+      "interactions": [
+        {
+          "control": "进入收工阶段",
+          "action": "phase → 6（Web 区按钮）"
+        },
+        {
+          "control": "⏻ 电源",
+          "action": "关机，记录「关闭电源」"
+        },
+        {
+          "control": "探头口",
+          "action": "拔线，记录「拔除线材」"
+        },
+        {
+          "control": "顺序要求",
+          "action": "必须先关机再拔线（cleanupOrder）"
+        }
+      ],
+      "transitions": [
+        {
+          "to": "自动提交",
+          "when": "关机且拔线均完成 → onNext()"
+        }
+      ]
+    }
+  ]
+}</script>
+  <script>
+    const DATA = JSON.parse(document.getElementById('step09-data').textContent);
+
+    function renderLayout() {
+      const el = document.getElementById('layout-overview');
+      const d = DATA.layoutZones.find(z => z.id === 'D');
+      const m = DATA.layoutZones.find(z => z.id === 'M');
+      const i = DATA.layoutZones.find(z => z.id === 'I');
+      el.innerHTML = `
+        <div class="zone">
+          <span class="zone-label">${d.label}</span>
+          <ul>${d.items.map(x => '<li>' + x + '</li>').join('')}</ul>
+          <div class="unlock">${d.unlock}</div>
+        </div>
+        <div class="zone-right">
+          <div class="zone" style="flex:1">
+            <span class="zone-label">${m.label}</span>
+            <ul>${m.items.map(x => '<li>' + x + '</li>').join('')}</ul>
+            <div class="unlock">${m.unlock}</div>
+          </div>
+          <div class="zone">
+            <span class="zone-label">${i.label}</span>
+            <div class="device-mock">
+              <div class="lcd-mini">LCD</div>
+              <div>[←][OK][↑][↓] &nbsp; ⏻ &nbsp; ○探头</div>
+            </div>
+            <div class="unlock">${i.unlock}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDiffs() {
+      document.getElementById('ref-diffs').innerHTML =
+        DATA.referenceDiffs.map(d => '<li>' + d + '</li>').join('');
+    }
+
+    function renderControls() {
+      const rows = DATA.physicalControls.map(c =>
+        '<tr><th>' + c.control + '</th><td>' + c.action + '</td></tr>'
+      ).join('');
+      document.getElementById('controls-table').innerHTML =
+        '<thead><tr><th>控件</th><th>作用</th></tr></thead><tbody>' + rows + '</tbody>';
+    }
+
+    function renderLcd(lines, highlightLine) {
+      return lines.map((line, i) => {
+        const cls = i === highlightLine ? 'hl' : (line === '' ? 'dim' : '');
+        return '<div class="' + cls + '">' + (line || '&nbsp;') + '</div>';
+      }).join('');
+    }
+
+    function renderScreens() {
+      const board = document.getElementById('flow-board');
+      board.innerHTML = DATA.screens.map(s => {
+        const interactions = s.interactions.map(i =>
+          '<tr><th>' + i.control + '</th><td>' + i.action + '</td></tr>'
+        ).join('');
+        const initial = s.initialState.map(x => '<li>' + x + '</li>').join('');
+        const trans = s.transitions.map(t =>
+          '<span>→ <b>' + t.to + '</b>：' + t.when + '</span>'
+        ).join('');
+        const webNotes = (s.webAreaNotes || []).length
+          ? '<div class="callout"><h4>Web 区补充</h4><ul>' +
+            s.webAreaNotes.map(n => '<li>' + n + '</li>').join('') + '</ul></div>'
+          : '';
+        return `
+          <div class="card screen-card">
+            <div class="screen-device">
+              <div class="screen-order">${s.id} · ${s.lcdScreen}</div>
+              <div class="screen-title">${s.order}. ${s.title}</div>
+              <div class="lcd">${renderLcd(s.mockupLines, s.highlightLine)}</div>
+              <div class="nav-keys">
+                <span>←</span><span class="ok">OK</span><span>↑</span><span>↓</span>
+              </div>
+            </div>
+            <div class="callouts">
+              <div class="callout">
+                <h4>初始状态</h4>
+                <ul>${initial}</ul>
+              </div>
+              <div class="callout">
+                <h4>交互说明</h4>
+                <table><tbody>${interactions}</tbody></table>
+                <div class="transitions">${trans}</div>
+              </div>
+              ${webNotes}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMermaid() {
+      document.getElementById('flow-mermaid').textContent = DATA.flowMermaid;
+    }
+
+    renderLayout();
+    renderDiffs();
+    renderControls();
+    renderScreens();
+    renderMermaid();
+  </script>
+</body>
+</html>

@@ -8,6 +8,11 @@ import { WireframePlaceholder } from '../WireframeOverlay';
 import { acqInstrumentScoringConfig } from '../../data/scoringConfig';
 import { getMonitoringRawReading } from '../../data/monitoringData';
 import { calculateStepScore, type UserAnswerValue } from '../../lib/scoring';
+import {
+  buildEmptyReadings,
+  STEP9_DEV_AUTOSTART_SNAPSHOT,
+  type Step9Snapshot,
+} from '../../data/requirements/step09Snapshots';
 
 // --- Types ---
 interface Reading {
@@ -55,7 +60,13 @@ const getReadingQuestionId = (type: 'forward' | 'reverse', depth: number) => {
   return `acq.instrument.${type}${depthKey}`;
 };
 
-export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgress?: (data: any) => void; devAutoStart?: boolean }> = ({ onNext, onProgress, devAutoStart }) => {
+export const InstrumentSetting: React.FC<{
+  onNext: (data: any) => void;
+  onProgress?: (data: any) => void;
+  devAutoStart?: boolean;
+  initialSnapshot?: Step9Snapshot | null;
+  previewMode?: boolean;
+}> = ({ onNext, onProgress, devAutoStart, initialSnapshot, previewMode }) => {
   // --- Phase & device state ---
   const [phase, setPhase] = useState<Phase>(1);
   const [isPoweredOn, setIsPoweredOn] = useState(false);
@@ -154,35 +165,58 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
     };
   };
 
-  // --- DEV auto-start ---
-  useEffect(() => {
-    if (!devAutoStart) return;
-    setSelectedCable('A');
-    setCableBeforeBoot(true);
-    lockedProcessAnswers.current.add('acq.instrument.powerOrder');
-    setRecordedAnswers(prev => ({
-      ...prev,
-      'acq.instrument.cable': 'A',
-      'acq.instrument.powerOrder': 'connectBeforePower',
-    }));
-    setIsPoweredOn(true);
-    setIsConnected(true);
-    setParams({ area: '03', hole: '06', depth: 20 });
-    setParamsSaved(true);
-    setProbe({ direction: '向上', calibration: 0.00, stepLength: 0.5 });
-    setProbeSaved(true);
-    setPhase(3);
-    setLcdScreen('confirm-fwd');
-    setMeasureType('forward');
-    setFieldUnlocked(true);
-    setManualPoint(0);
-    setCurrentDepth(TOTAL_DEPTH);
-    setProbeRotation(0);
-    setRotationConfirmed(false);
-    setCableAlignment(null);
+  const hydrateFromSnapshot = useCallback((snap: Step9Snapshot) => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    lockedProcessAnswers.current.clear();
     stabilityScores.current = {};
-    initReadings();
-  }, [devAutoStart]);
+
+    setPhase(snap.phase);
+    setIsPoweredOn(snap.isPoweredOn);
+    setBooting(snap.booting ?? false);
+    setIsConnected(snap.isConnected);
+    setSelectedCable(snap.selectedCable ?? null);
+    setShowCableModal(snap.showCableModal ?? false);
+    setPendingCable(null);
+    setLcdScreen(snap.lcdScreen);
+    setCursor(0);
+    setEditingField(null);
+    setParams(snap.params);
+    setParamsSaved(snap.paramsSaved);
+    setProbe(snap.probe);
+    setProbeSaved(snap.probeSaved);
+    setMeasureType(snap.measureType ?? null);
+    setCurrentDepth(snap.currentDepth ?? 0);
+    setManualPoint(snap.manualPoint ?? 0);
+    setIsStable(snap.isStable ?? false);
+    setStabilizeTimer(snap.stabilizeTimer ?? 0);
+    setIsMeasuring(snap.isMeasuring ?? false);
+    setAutoCollecting(snap.autoCollecting ?? false);
+    setShowMovePrompt(snap.showMovePrompt ?? false);
+    setFieldUnlocked(snap.fieldUnlocked ?? false);
+    setProbeRotation(snap.probeRotation ?? 0);
+    setRotationConfirmed(snap.rotationConfirmed ?? false);
+    setCableAlignment(snap.cableAlignment ?? null);
+    setPendingAlignment(null);
+    setMonitorInterval(snap.monitorInterval ?? '');
+    setRemeasureParams(snap.remeasureParams ?? { group: '05', depth: 3.0, direction: '正测' });
+    setFoundAnomaly(snap.foundAnomaly ?? false);
+    setCleanupDone(snap.cleanupDone ?? { power: false, cable: false });
+    setCleanupOrder([]);
+    setReadings(snap.readings ?? buildEmptyReadings(snap.probe.stepLength));
+    setShowDataTable(false);
+    setRecordedAnswers({});
+    setCableBeforeBoot(snap.isConnected ? true : null);
+  }, []);
+
+  // --- 快照 / DEV auto-start ---
+  useEffect(() => {
+    const snap = initialSnapshot ?? (devAutoStart ? STEP9_DEV_AUTOSTART_SNAPSHOT : null);
+    if (!snap) return;
+    hydrateFromSnapshot(snap);
+  }, [initialSnapshot?.id, devAutoStart, hydrateFromSnapshot]);
 
   // --- Phase advancement ---
   useEffect(() => {
@@ -194,10 +228,11 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
   }, [paramsSaved, probeSaved, phase]);
 
   useEffect(() => {
+    if (previewMode) return;
     if (Object.keys(recordedAnswers).length > 0) {
       onProgress?.(buildScoreData(recordedAnswers));
     }
-  }, [recordedAnswers]);
+  }, [recordedAnswers, previewMode]);
 
   useEffect(() => {
     if (cleanupDone.power && cleanupDone.cable) {
@@ -644,10 +679,9 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
   const canSubmit = phase >= 5 && cleanupDone.power && cleanupDone.cable;
 
   useEffect(() => {
-    if (canSubmit) {
-      handleSubmit();
-    }
-  }, [canSubmit]);
+    if (previewMode || !canSubmit) return;
+    handleSubmit();
+  }, [canSubmit, previewMode]);
 
   const enterCleanupPhase = () => setPhase(6);
 
@@ -1038,7 +1072,7 @@ export const InstrumentSetting: React.FC<{ onNext: (data: any) => void; onProgre
       </div>
 
       {/* Cleanup */}
-      {phase >= 5 && phase < 6 && (
+      {!previewMode && phase >= 5 && phase < 6 && (
         <div className="flex justify-end">
           <Button variant="secondary" onClick={enterCleanupPhase} className="text-[10px]">进入收工阶段</Button>
         </div>

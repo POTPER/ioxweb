@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "doc:step09": "tsx scripts/generate-step09-interaction-md.ts && tsx scripts/generate-step09-interaction-html.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
