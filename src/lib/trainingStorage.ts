@@ -100,6 +100,18 @@ export const saveStepDraft = (stepId: string, draft: any) => {
   });
 };
 
+export const clearStepProgress = (stepId: string) => {
+  const session = loadTrainingSession();
+  const { [stepId]: _removedResult, ...results } = session.results;
+  const { [stepId]: _removedSubmission, ...submissions } = session.submissions;
+
+  saveTrainingSession({
+    ...session,
+    results,
+    submissions,
+  });
+};
+
 export const clearTrainingSession = () => {
   if (typeof window === 'undefined') return;
 

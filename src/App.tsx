@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
 import { StepId } from './types';
 import { 
   TechnicalPreparation, 
@@ -22,13 +22,14 @@ import { JitterFormulaPlayground } from './components/JitterFormulaPlayground';
 import { Step9SpecStudio } from './components/Step9SpecStudio';
 import { Modal, Button } from './components/Common';
 import { WireframeProvider, useWireframe } from './components/WireframeContext';
-import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
+import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut, AlertCircle } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { loadTrainingSession, saveStepResult, saveStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
+import { loadTrainingSession, saveStepResult, saveStepProgress, clearStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
 import { createDevSampleStepResults } from './data/devSampleAnswerSheet';
 import { exportAllConnectivityGifs } from './lib/exportConnectivityGif';
+import { OdoPrdRoot, useOdoPrdBridge } from './lib/odoPrdBridge';
 import bgPdfUrl from '../assets/工程资料X.pdf?url';
 import standardPdfUrl from '../assets/GB50497-建筑基坑工程监测技术标准-3.pdf?url';
 
@@ -39,6 +40,8 @@ function AppInner() {
   const [reportData, setReportData] = useState<any>(null);
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [pendingStepNav, setPendingStepNav] = useState<StepId | null>(null);
+  const [showStep9LeaveConfirm, setShowStep9LeaveConfirm] = useState(false);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
   const [devVisible, setDevVisible] = useState(true);
   const [showDevPanel, setShowDevPanel] = useState(false);
@@ -145,6 +148,39 @@ function AppInner() {
     }
   };
 
+  const hasStep9Progress = useCallback((data: Record<string, any>) => {
+    const answers = data['9']?.recordedAnswers;
+    return Boolean(answers && Object.keys(answers).length > 0);
+  }, []);
+
+  const shouldConfirmLeaveStep9 = useCallback((target: StepId) => {
+    return currentStep === '9'
+      && !completedSteps.has('9')
+      && hasStep9Progress(stepData)
+      && target !== '9';
+  }, [currentStep, completedSteps, hasStep9Progress, stepData]);
+
+  const attemptNavigate = useCallback((target: StepId) => {
+    if (shouldConfirmLeaveStep9(target)) {
+      setPendingStepNav(target);
+      setShowStep9LeaveConfirm(true);
+      return;
+    }
+    setCurrentStep(target);
+  }, [shouldConfirmLeaveStep9]);
+
+  const confirmLeaveStep9 = useCallback(() => {
+    clearStepProgress('9');
+    setStepData(prev => {
+      const next = { ...prev };
+      delete next['9'];
+      return next;
+    });
+    if (pendingStepNav) setCurrentStep(pendingStepNav);
+    setShowStep9LeaveConfirm(false);
+    setPendingStepNav(null);
+  }, [pendingStepNav]);
+
   const renderStep = () => {
     switch (currentStep) {
       case '1': return <TechnicalPreparation onNext={handleStepComplete} />;
@@ -165,16 +201,78 @@ function AppInner() {
 
   const currentStepInfo = steps.find(s => s.id === currentStep);
 
+  const odoPrdSnapshot = useMemo(
+    () => ({
+      hasStarted,
+      currentStep,
+      showReport,
+      showMaterials,
+      materialTab,
+      showTransition,
+      allUnlocked,
+      completedSteps: Array.from(completedSteps),
+    }),
+    [
+      hasStarted,
+      currentStep,
+      showReport,
+      showMaterials,
+      materialTab,
+      showTransition,
+      allUnlocked,
+      completedSteps,
+    ],
+  );
+
+  const applyOdoPrdRestore = useCallback((state: Record<string, unknown>) => {
+    if (typeof state.hasStarted === 'boolean') setHasStarted(state.hasStarted);
+    if (typeof state.currentStep === 'string') setCurrentStep(state.currentStep as StepId);
+    if (typeof state.showReport === 'boolean') setShowReport(state.showReport);
+    if (typeof state.showMaterials === 'boolean') setShowMaterials(state.showMaterials);
+    if (
+      state.materialTab === 'bg' ||
+      state.materialTab === 'instrument' ||
+      state.materialTab === 'tube' ||
+      state.materialTab === 'standard'
+    ) {
+      setMaterialTab(state.materialTab);
+    }
+    if (typeof state.showTransition === 'boolean') setShowTransition(state.showTransition);
+    if (typeof state.allUnlocked === 'boolean') setAllUnlocked(state.allUnlocked);
+    if (Array.isArray(state.completedSteps)) {
+      setCompletedSteps(new Set(state.completedSteps as StepId[]));
+    }
+
+    const session = loadTrainingSession();
+    setStepData(session.results);
+    if (state.showReport === true) {
+      setReportData(generateMockReport('张三', session.results));
+    } else {
+      setReportData(null);
+    }
+  }, []);
+
+  useOdoPrdBridge(odoPrdSnapshot, applyOdoPrdRestore);
+
   if (!hasStarted) {
-    return <StartPage onStart={() => setHasStarted(true)} />;
+    return (
+      <OdoPrdRoot snapshot={odoPrdSnapshot}>
+        <StartPage onStart={() => setHasStarted(true)} />
+      </OdoPrdRoot>
+    );
   }
 
   if (showReport && reportData) {
-    return <ReportPage data={reportData} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
+    return (
+      <OdoPrdRoot snapshot={odoPrdSnapshot}>
+        <ReportPage data={reportData} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />
+      </OdoPrdRoot>
+    );
   }
 
   if (showTransition) {
     return (
+      <OdoPrdRoot snapshot={odoPrdSnapshot}>
       <div className="min-h-screen flex items-center justify-center bg-industrial-bg p-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
@@ -196,11 +294,12 @@ function AppInner() {
           </Button>
         </motion.div>
       </div>
+      </OdoPrdRoot>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-industrial-bg text-industrial-fg selection:bg-industrial-fg selection:text-industrial-bg">
+    <OdoPrdRoot snapshot={odoPrdSnapshot} className="min-h-screen flex flex-col bg-industrial-bg text-industrial-fg selection:bg-industrial-fg selection:text-industrial-bg">
       {/* Header */}
       <header className="h-14 border-b border-industrial-fg bg-white flex items-center px-6 sticky top-0 z-50 relative">
         <div className="flex items-center space-x-2">
@@ -244,7 +343,7 @@ function AppInner() {
                           key={step.id}
                           onClick={() => {
                             if (!canNavigate) return;
-                            setCurrentStep(step.id);
+                            attemptNavigate(step.id);
                           }}
                           disabled={!canNavigate}
                           className={cn(
@@ -369,6 +468,49 @@ function AppInner() {
         </div>
       </Modal>
 
+      {/* 第九步 · 切换离开确认弹窗 */}
+      <Modal
+        isOpen={showStep9LeaveConfirm}
+        onClose={() => {
+          setShowStep9LeaveConfirm(false);
+          setPendingStepNav(null);
+        }}
+        title="确认切换步骤"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
+            <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="opacity-70 leading-relaxed">
+              {pendingStepNav && completedSteps.has(pendingStepNav) ? (
+                <>
+                  当前第九步实操尚未完成。切换至已完成的步骤后，返回第九步需<strong>重新制作</strong>读数仪设置与数据采集，是否继续？
+                </>
+              ) : (
+                <>
+                  当前第九步实操尚未完成。离开后将不会保留当前进度，返回需重新制作，是否继续？
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowStep9LeaveConfirm(false);
+                setPendingStepNav(null);
+              }}
+              className="px-5"
+            >
+              取消
+            </Button>
+            <Button onClick={confirmLeaveStep9} className="px-5">
+              确认切换
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* 提交本次实操 · 确认弹窗 */}
       <Modal
         isOpen={showSubmitConfirm}
@@ -490,7 +632,7 @@ function AppInner() {
           DEV
         </button>
       </div>}
-    </div>
+    </OdoPrdRoot>
   );
 }
 
