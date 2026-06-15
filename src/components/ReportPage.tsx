@@ -273,6 +273,16 @@ export function generatePracticeReport(
     ...question,
     id: question.id || question.questionId,
     userAnswer: question.userAnswerLabel || question.userAnswer || '',
+    correctAnswer:
+      question.correctAnswerLabel ||
+      question.correctAnswer ||
+      (question.correctRange
+        ? `${question.correctRange[0]}-${question.correctRange[1]}${question.unit || ''}`
+        : ''),
+    analysis:
+      question.analysis ||
+      question.explanation ||
+      '暂无解析，请参考标准答案与评分规则。',
   }));
 
   const stepName = step9Data?.stepName || '读数仪设置与数据采集';
@@ -356,40 +366,13 @@ const formatUserAnswerText = (question: QuestionResult) => {
   return question.userAnswer || '未作答';
 };
 
-const hasUserAnswer = (question: QuestionResult) => {
-  const text = formatUserAnswerText(question);
-  return text !== '未作答' && text !== '';
-};
-
-const PracticeStepDetail: React.FC<{ step: StepResult }> = ({ step }) => (
-  <div className="border border-industrial-fg/10 bg-white">
-    <div className="px-3 py-2 border-b border-industrial-fg/10">
-      <div className="text-xs font-bold truncate">{step.name}</div>
-    </div>
-    <div className="p-3 space-y-3">
-      {step.questions.map((q) => {
-        const userAnswerText = formatUserAnswerText(q);
-        const displayText = hasUserAnswer(q) ? userAnswerText : '未作答';
-
-        return (
-          <div key={q.id} className="border-b border-industrial-fg/10 pb-3 last:border-b-0 last:pb-0">
-            <div className="text-xs font-bold">{q.label}</div>
-            <div className="mt-1 font-mono text-[11px] opacity-70 break-words">{displayText}</div>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
+const isQuestionAnswered = (question: QuestionResult) =>
+  formatUserAnswerText(question) !== '未作答';
 
 const StepDetail: React.FC<{ step: StepResult; showScores?: boolean }> = ({
   step,
   showScores = true,
 }) => {
-  if (!showScores) {
-    return <PracticeStepDetail step={step} />;
-  }
-
   const percentage = step.maxScore > 0 ? (step.score / step.maxScore) * 100 : 0;
   const isWeak = percentage < 60;
 
@@ -421,7 +404,8 @@ const StepDetail: React.FC<{ step: StepResult; showScores?: boolean }> = ({
       <div className="border-t border-industrial-fg/10 bg-industrial-bg/5">
             <div className="p-2 space-y-2">
               {step.questions.map((q) => {
-                const showDetail = showScores ? !q.correct : true;
+                const isAnswered = isQuestionAnswered(q);
+                const showDetail = showScores ? !q.correct && isAnswered : isAnswered;
                 const userAnswerText = formatUserAnswerText(q);
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';

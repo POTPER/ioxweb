@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Award, CheckCircle2 } from 'lucide-react';
 import {
   InstrumentSetting,
   type InstrumentSettingHandle,
@@ -60,9 +59,8 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
     <div className="max-w-6xl mx-auto px-6 md:px-8 flex justify-center">
       <Button
         onClick={() => setShowSubmitConfirm(true)}
-        className="px-6 py-2 text-[10px] tracking-[0.2em] flex items-center gap-1.5"
+        className="px-6 py-2 text-[10px] tracking-[0.2em]"
       >
-        <Award size={12} />
         提交练习
       </Button>
     </div>
@@ -132,21 +130,14 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
         maxWidth="max-w-md"
       >
         <div className="space-y-4 text-xs">
-          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
-            <Award size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <div className="font-bold text-sm">是否确认提交本次练习？</div>
-              <div className="opacity-70 leading-relaxed">
-                提交后将生成练习报告（不计分），展示当前操作记录与参考答案。
-              </div>
-            </div>
+          <div className="p-3 bg-amber-50 border border-amber-300">
+            <div className="font-bold text-sm">是否确认提交本次练习？</div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowSubmitConfirm(false)} className="px-5">
               取消
             </Button>
             <Button onClick={handleConfirmSubmit} className="px-5">
-              <CheckCircle2 size={14} className="inline mr-1" />
               确认提交
             </Button>
           </div>
