@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle
 } from 'lucide-react';
 import { RequirementsOverlay } from './RequirementsOverlay';
+import { Button } from './Common';
 
 // --- Types for the Report ---
 
@@ -263,6 +264,52 @@ export const generateMockReport = (studentName: string, stepData?: Record<string
   };
 };
 
+export function generatePracticeReport(
+  instrumentName: string,
+  step9Data: any,
+): ReportData {
+  const answers = step9Data?.answers ?? [];
+  const questions: QuestionResult[] = answers.map((question: any) => ({
+    ...question,
+    id: question.id || question.questionId,
+    userAnswer: question.userAnswerLabel || question.userAnswer || '',
+  }));
+
+  const stepName = step9Data?.stepName || '读数仪设置与数据采集';
+
+  return {
+    student: { name: '练习', studentId: '', className: '' },
+    exam: {
+      startTime: '',
+      endTime: new Date().toLocaleString(),
+      totalScore: 0,
+      totalMaxScore: 0,
+    },
+    modules: [
+      {
+        id: 'practice-module',
+        name: `${instrumentName}练习`,
+        score: 0,
+        maxScore: 0,
+        duration: 0,
+        steps: [
+          {
+            id: 'acq.instrument',
+            name: stepName,
+            score: 0,
+            maxScore: 0,
+            questions,
+            unanswered:
+              questions.length > 0 &&
+              questions.every((question) => !question.userAnswer),
+          },
+        ],
+      },
+    ],
+    radar: { dimensions: [], values: [] },
+  };
+}
+
 // --- Sub-components ---
 
 const ScoreCircle: React.FC<{ score: number; maxScore: number }> = ({ score, maxScore }) => {
@@ -309,8 +356,41 @@ const formatUserAnswerText = (question: QuestionResult) => {
   return question.userAnswer || '未作答';
 };
 
-const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
-  const percentage = (step.score / step.maxScore) * 100;
+const hasUserAnswer = (question: QuestionResult) => {
+  const text = formatUserAnswerText(question);
+  return text !== '未作答' && text !== '';
+};
+
+const PracticeStepDetail: React.FC<{ step: StepResult }> = ({ step }) => (
+  <div className="border border-industrial-fg/10 bg-white">
+    <div className="px-3 py-2 border-b border-industrial-fg/10">
+      <div className="text-xs font-bold truncate">{step.name}</div>
+    </div>
+    <div className="p-3 space-y-3">
+      {step.questions.map((q) => {
+        const userAnswerText = formatUserAnswerText(q);
+        const displayText = hasUserAnswer(q) ? userAnswerText : '未作答';
+
+        return (
+          <div key={q.id} className="border-b border-industrial-fg/10 pb-3 last:border-b-0 last:pb-0">
+            <div className="text-xs font-bold">{q.label}</div>
+            <div className="mt-1 font-mono text-[11px] opacity-70 break-words">{displayText}</div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const StepDetail: React.FC<{ step: StepResult; showScores?: boolean }> = ({
+  step,
+  showScores = true,
+}) => {
+  if (!showScores) {
+    return <PracticeStepDetail step={step} />;
+  }
+
+  const percentage = step.maxScore > 0 ? (step.score / step.maxScore) * 100 : 0;
   const isWeak = percentage < 60;
 
   return (
@@ -320,61 +400,63 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
           <div className="min-w-0">
             <div className="text-xs font-bold uppercase tracking-wider truncate">{step.name}</div>
           </div>
-          <div className="flex items-center justify-end gap-2">
-            {step.unanswered && (
-              <span className="border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 whitespace-nowrap">
-                未答题
+          {showScores && (
+            <div className="flex items-center justify-end gap-2">
+              {step.unanswered && (
+                <span className="border border-red-300 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 whitespace-nowrap">
+                  未答题
+                </span>
+              )}
+              <span className={cn(
+                "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
+                isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
+              )}>
+                得分 {step.score} / {step.maxScore} 分
               </span>
-            )}
-            <span className={cn(
-              "px-2 py-0.5 border font-mono text-[10px] font-bold whitespace-nowrap",
-              isWeak ? "border-red-300 bg-red-50 text-red-600" : "border-green-300 bg-green-50 text-green-700"
-            )}>
-              得分 {step.score} / {step.maxScore} 分
-            </span>
-          </div>
+            </div>
+          )}
         </div>
       </div>
       
       <div className="border-t border-industrial-fg/10 bg-industrial-bg/5">
             <div className="p-2 space-y-2">
               {step.questions.map((q) => {
-                const showDetail = !q.correct;
+                const showDetail = showScores ? !q.correct : true;
                 const userAnswerText = formatUserAnswerText(q);
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
 
                 return (
                   <div key={q.id} className="relative bg-white border border-industrial-fg/10 text-[10px]">
-                    {/* 标题栏：显示完整答案，节约空间 */}
                     <div className={cn(
                       "relative flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-industrial-fg/10 px-2 py-1.5 bg-industrial-bg/20",
                       !showDetail && "border-b-0"
                     )}>
-                      {/* 左侧：图标 + 题目名称 - 固定宽度 */}
                       <div className="flex items-center space-x-2 w-[120px] md:w-[160px] shrink-0">
-                        {q.correct ? <CheckCircle2 size={12} className="shrink-0 text-green-500" /> : <XCircle size={12} className="shrink-0 text-red-500" />}
+                        {showScores && (
+                          q.correct
+                            ? <CheckCircle2 size={12} className="shrink-0 text-green-500" />
+                            : <XCircle size={12} className="shrink-0 text-red-500" />
+                        )}
                         <span className="truncate font-bold">{q.label}</span>
                       </div>
                       
-                      {/* 分隔符 */}
                       <span className="font-mono opacity-30 shrink-0">|</span>
                       
-                      {/* 中间：你的答案 - 完整显示，允许换行 */}
                       <span className="min-w-0 flex-1 font-mono opacity-60 break-words">
                         你的答案：{userAnswerText}
                       </span>
                       
-                      {/* 分隔符 */}
-                      <span className="font-mono opacity-30 shrink-0">|</span>
-                      
-                      {/* 右侧：得分 - 固定宽度，永不被挤压 */}
-                      <span className="w-[60px] shrink-0 text-right font-mono opacity-60">
-                        {formatItemScore(q.score, q.maxScore)}
-                      </span>
+                      {showScores && (
+                        <>
+                          <span className="font-mono opacity-30 shrink-0">|</span>
+                          <span className="w-[60px] shrink-0 text-right font-mono opacity-60">
+                            {formatItemScore(q.score, q.maxScore)}
+                          </span>
+                        </>
+                      )}
                     </div>
                     
-                    {/* 展开区域：只显示标准答案和解析 */}
                     {showDetail && (
                       <div className="relative grid grid-cols-1 gap-2 p-2 md:grid-cols-2">
                         <div className="relative border border-green-200 bg-green-50 px-2 py-1.5">
@@ -398,8 +480,15 @@ const StepDetail: React.FC<{ step: StepResult }> = ({ step }) => {
 
 // --- Main Report Component ---
 
-export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({ data }) => {
+export const ReportPage: React.FC<{
+  data: ReportData;
+  onBack: () => void;
+  variant?: 'exam' | 'practice';
+  subtitle?: string;
+}> = ({ data, onBack, variant = 'exam', subtitle }) => {
   const [showRequirements, setShowRequirements] = useState(false);
+  const isPractice = variant === 'practice';
+  const showScores = !isPractice;
 
   return (
     <div className="min-h-screen bg-industrial-bg/20 py-12 px-4 print:bg-white print:p-0">
@@ -407,33 +496,58 @@ export const ReportPage: React.FC<{ data: ReportData; onBack: () => void }> = ({
       <div className="space-y-8 bg-white border-2 border-industrial-fg p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)] print:shadow-none print:border-none">
         
         {/* Header */}
-        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-industrial-fg pb-8 gap-8">
+        <div className={cn(
+          'relative border-b-4 border-industrial-fg pb-8',
+          isPractice ? 'space-y-3' : 'flex flex-col md:flex-row justify-between items-start md:items-center gap-8',
+        )}>
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <div>
-                <h1 className="text-2xl font-bold uppercase tracking-tighter">成绩报告</h1>
-                <div className="mt-1 text-xs font-bold tracking-wider opacity-60">深基坑深层水平位移监测实训</div>
+                <h1 className="text-2xl font-bold uppercase tracking-tighter">
+                  {isPractice ? '练习报告' : '成绩报告'}
+                </h1>
+                {!isPractice && (
+                  <div className="mt-1 text-xs font-bold tracking-wider opacity-60">
+                    深基坑深层水平位移监测实训
+                  </div>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[11px] font-mono">
-              <div>学生姓名: {data.student.name}</div>
-              <div>学号: {data.student.studentId}</div>
-              <div>班级: {data.student.className}</div>
-              <div>完成时间: {data.exam.endTime}</div>
-            </div>
+            {isPractice ? (
+              <div className="text-[11px] font-mono opacity-60">
+                提交时间: {data.exam.endTime}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[11px] font-mono">
+                <div>学生姓名: {data.student.name}</div>
+                <div>学号: {data.student.studentId}</div>
+                <div>班级: {data.student.className}</div>
+                <div>完成时间: {data.exam.endTime}</div>
+              </div>
+            )}
           </div>
-          <ScoreCircle score={data.exam.totalScore} maxScore={data.exam.totalMaxScore} />
+          {!isPractice && (
+            <ScoreCircle score={data.exam.totalScore} maxScore={data.exam.totalMaxScore} />
+          )}
         </div>
 
         {/* Detailed Breakdown */}
         <div className="space-y-6">
-          <h3 className="technical-label">得分明细</h3>
+          <h3 className="technical-label">{isPractice ? '操作记录' : '得分明细'}</h3>
           <div className="space-y-1">
             {data.modules.flatMap(module => module.steps).map((step) => (
-              <StepDetail key={step.id} step={step} />
+              <StepDetail key={step.id} step={step} showScores={showScores} />
             ))}
           </div>
         </div>
+
+        {isPractice && (
+          <div className="flex justify-center pt-2">
+            <Button variant="secondary" onClick={onBack} className="px-6">
+              返回练习系统
+            </Button>
+          </div>
+        )}
 
       </div>
       </div>

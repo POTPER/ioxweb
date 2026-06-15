@@ -6,6 +6,7 @@ import {
   type InstrumentSettingHandle,
 } from '../steps/Step9_InstrumentSetting';
 import { Modal, Button } from '../Common';
+import { ReportPage, generatePracticeReport, type ReportData } from '../ReportPage';
 import { PracticePageShell } from './PracticePageShell';
 import { savePracticeProgress, savePracticeResult } from '../../lib/practiceStorage';
 import {
@@ -27,54 +28,42 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
 }) => {
   const instrument = getPracticeInstrument(instrumentId);
   const step9Ref = useRef<InstrumentSettingHandle>(null);
-  const [canSubmit, setCanSubmit] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [pendingScoreData, setPendingScoreData] = useState<any>(null);
+  const [hasMarkedComplete, setHasMarkedComplete] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [scoreSummary, setScoreSummary] = useState<string>('');
+  const [showReport, setShowReport] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
 
   const handlePracticeProgress = (data: any) => {
     if (data) {
       savePracticeProgress(instrumentId, data);
-      setPendingScoreData(data);
     }
   };
 
   const handlePracticeSubmit = (data: any) => {
     if (data) {
       savePracticeResult(instrumentId, data);
-      const score = data.totalScore ?? data.scores?.total ?? '—';
-      setScoreSummary(typeof score === 'number' ? `${score} 分` : String(score));
+      setReportData(generatePracticeReport(instrument.name, data));
     }
-    onComplete(instrumentId);
-    setIsSubmitted(true);
+    if (!hasMarkedComplete) {
+      onComplete(instrumentId);
+      setHasMarkedComplete(true);
+    }
     setShowSubmitConfirm(false);
-    setShowSuccessModal(true);
+    setShowReport(true);
   };
 
   const handleConfirmSubmit = () => {
     step9Ref.current?.submit();
   };
 
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    onBack();
-  };
-
-  const previewScore =
-    pendingScoreData?.totalScore ?? pendingScoreData?.scores?.total ?? '—';
-
   const submitFooter = (
     <div className="max-w-6xl mx-auto px-6 md:px-8 flex justify-center">
       <Button
         onClick={() => setShowSubmitConfirm(true)}
-        disabled={!canSubmit || isSubmitted}
-        title={!canSubmit ? '请先完成收工流程' : undefined}
         className="px-6 py-2 text-[10px] tracking-[0.2em] flex items-center gap-1.5"
       >
         <Award size={12} />
-        {isSubmitted ? '已提交' : '提交练习'}
+        提交练习
       </Button>
     </div>
   );
@@ -89,6 +78,19 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
           </div>
         </div>
       </PracticePageShell>
+    );
+  }
+
+  if (showReport && reportData) {
+    return (
+      <ReportPage
+        variant="practice"
+        data={reportData}
+        onBack={() => {
+          setShowReport(false);
+          onBack();
+        }}
+      />
     );
   }
 
@@ -115,7 +117,6 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
               <InstrumentSetting
                 ref={step9Ref}
                 manualSubmit
-                onSubmitReady={setCanSubmit}
                 onNext={handlePracticeSubmit}
                 onProgress={handlePracticeProgress}
               />
@@ -136,13 +137,8 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
             <div className="space-y-1">
               <div className="font-bold text-sm">是否确认提交本次练习？</div>
               <div className="opacity-70 leading-relaxed">
-                提交后成绩将记录，不可修改。
+                提交后将生成练习报告（不计分），展示当前操作记录与参考答案。
               </div>
-              {canSubmit && (
-                <div className="text-[11px] font-mono opacity-80 pt-1">
-                  当前得分：{typeof previewScore === 'number' ? `${previewScore} 分` : previewScore}
-                </div>
-              )}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -152,33 +148,6 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
             <Button onClick={handleConfirmSubmit} className="px-5">
               <CheckCircle2 size={14} className="inline mr-1" />
               确认提交
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={handleSuccessClose}
-        title="练习完成"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4 text-sm">
-          <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-300">
-            <CheckCircle2 size={24} className="text-green-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <div className="font-bold">{instrument.name}练习已提交</div>
-              <div className="opacity-70 leading-relaxed">
-                您的练习成绩已成功记录。
-                {scoreSummary && (
-                  <span className="block mt-1 font-mono text-green-700">得分：{scoreSummary}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={handleSuccessClose} className="px-6">
-              返回练习系统
             </Button>
           </div>
         </div>
