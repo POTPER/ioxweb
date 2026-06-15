@@ -162,6 +162,7 @@ export const InstrumentSetting: React.FC<{
       probe,
       remeasureParams,
       recordedAnswers: answers,
+      coreCollectionDone: phase >= 5,
     };
   };
 
@@ -232,7 +233,7 @@ export const InstrumentSetting: React.FC<{
     if (Object.keys(recordedAnswers).length > 0) {
       onProgress?.(buildScoreData(recordedAnswers));
     }
-  }, [recordedAnswers, previewMode]);
+  }, [recordedAnswers, phase, previewMode]);
 
   useEffect(() => {
     if (cleanupDone.power && cleanupDone.cable) {

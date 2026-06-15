@@ -25,7 +25,7 @@ import { WireframeProvider, useWireframe } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut, AlertCircle } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { loadTrainingSession, saveStepResult, saveStepProgress, clearStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
+import { loadTrainingSession, saveStepResult, saveStepProgress, persistCurrentStepBeforeLeave, clearStepProgress, clearTrainingSession, saveTrainingSession } from './lib/trainingStorage';
 import { trainingStepsByAppId } from './data/trainingContent';
 import { createDevSampleStepResults } from './data/devSampleAnswerSheet';
 import { exportAllConnectivityGifs } from './lib/exportConnectivityGif';
@@ -41,7 +41,7 @@ function AppInner() {
   const [showMaterials, setShowMaterials] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [pendingStepNav, setPendingStepNav] = useState<StepId | null>(null);
-  const [showStep9LeaveConfirm, setShowStep9LeaveConfirm] = useState(false);
+  const [step9NavMode, setStep9NavMode] = useState<'leave' | 'reenter' | null>(null);
   const [materialTab, setMaterialTab] = useState<'bg' | 'instrument' | 'tube' | 'standard'>('bg');
   const [devVisible, setDevVisible] = useState(true);
   const [showDevPanel, setShowDevPanel] = useState(false);
@@ -153,33 +153,90 @@ function AppInner() {
     return Boolean(answers && Object.keys(answers).length > 0);
   }, []);
 
+  const isStep9CoreCollectionDone = useCallback((data: Record<string, any>) => {
+    return Boolean(data['9']?.coreCollectionDone);
+  }, []);
+
+  const needsStep9Confirm = useCallback((data: Record<string, any>) => {
+    return hasStep9Progress(data) && !isStep9CoreCollectionDone(data);
+  }, [hasStep9Progress, isStep9CoreCollectionDone]);
+
+  const submitStepBeforeLeave = useCallback((stepId: StepId) => {
+    const data = stepData[stepId];
+    if (!data) return;
+    persistCurrentStepBeforeLeave(stepId, data, completedSteps.has(stepId));
+  }, [stepData, completedSteps]);
+
+  const canNavigateTo = useCallback((target: StepId) => {
+    if (allUnlocked) return true;
+    if (target === currentStep) return true;
+    if (completedSteps.has(target)) return true;
+
+    const nextId = String(Number(currentStep) + 1) as StepId;
+    if (target !== nextId) return false;
+
+    if (currentStep === '9' && target === '10') {
+      return isStep9CoreCollectionDone(stepData) || completedSteps.has('9');
+    }
+
+    return completedSteps.has(currentStep);
+  }, [allUnlocked, currentStep, completedSteps, stepData, isStep9CoreCollectionDone]);
+
   const shouldConfirmLeaveStep9 = useCallback((target: StepId) => {
-    return currentStep === '9'
-      && !completedSteps.has('9')
-      && hasStep9Progress(stepData)
-      && target !== '9';
-  }, [currentStep, completedSteps, hasStep9Progress, stepData]);
+    return currentStep === '9' && needsStep9Confirm(stepData) && target !== '9';
+  }, [currentStep, needsStep9Confirm, stepData]);
+
+  const shouldConfirmReenterStep9 = useCallback((target: StepId) => {
+    return target === '9'
+      && currentStep !== '9'
+      && needsStep9Confirm(stepData);
+  }, [currentStep, needsStep9Confirm, stepData]);
+
+  const closeStep9NavModal = useCallback(() => {
+    setStep9NavMode(null);
+    setPendingStepNav(null);
+  }, []);
 
   const attemptNavigate = useCallback((target: StepId) => {
+    if (target === currentStep) return;
+    if (!canNavigateTo(target)) return;
+
     if (shouldConfirmLeaveStep9(target)) {
       setPendingStepNav(target);
-      setShowStep9LeaveConfirm(true);
+      setStep9NavMode('leave');
       return;
     }
-    setCurrentStep(target);
-  }, [shouldConfirmLeaveStep9]);
+    if (shouldConfirmReenterStep9(target)) {
+      setStep9NavMode('reenter');
+      return;
+    }
 
-  const confirmLeaveStep9 = useCallback(() => {
-    clearStepProgress('9');
-    setStepData(prev => {
-      const next = { ...prev };
-      delete next['9'];
-      return next;
-    });
-    if (pendingStepNav) setCurrentStep(pendingStepNav);
-    setShowStep9LeaveConfirm(false);
-    setPendingStepNav(null);
-  }, [pendingStepNav]);
+    submitStepBeforeLeave(currentStep);
+    setCurrentStep(target);
+  }, [
+    currentStep,
+    canNavigateTo,
+    shouldConfirmLeaveStep9,
+    shouldConfirmReenterStep9,
+    submitStepBeforeLeave,
+  ]);
+
+  const confirmStep9Nav = useCallback(() => {
+    if (step9NavMode === 'leave' && pendingStepNav) {
+      submitStepBeforeLeave('9');
+      setCurrentStep(pendingStepNav);
+    } else if (step9NavMode === 'reenter') {
+      submitStepBeforeLeave(currentStep);
+      clearStepProgress('9');
+      setStepData(prev => {
+        const next = { ...prev };
+        delete next['9'];
+        return next;
+      });
+      setCurrentStep('9');
+    }
+    closeStep9NavModal();
+  }, [step9NavMode, pendingStepNav, currentStep, submitStepBeforeLeave, closeStep9NavModal]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -336,8 +393,8 @@ function AppInner() {
                       const currentIndex = steps.findIndex(s => s.id === currentStep);
                       const isCompleted = completedSteps.has(step.id);
                       const isCurrent = currentStep === step.id;
-                      const isNextReady = !isCurrent && stepIndex === currentIndex + 1 && completedSteps.has(currentStep);
-                      const canNavigate = allUnlocked || isCompleted || isCurrent || isNextReady;
+                      const canNavigate = canNavigateTo(step.id);
+                      const isNextReady = !isCurrent && !isCompleted && stepIndex === currentIndex + 1 && canNavigate;
                       return (
                         <button
                           key={step.id}
@@ -468,44 +525,34 @@ function AppInner() {
         </div>
       </Modal>
 
-      {/* 第九步 · 切换离开确认弹窗 */}
+      {/* 第九步 · 核心采集中切换确认（离开 / 再进入） */}
       <Modal
-        isOpen={showStep9LeaveConfirm}
-        onClose={() => {
-          setShowStep9LeaveConfirm(false);
-          setPendingStepNav(null);
-        }}
-        title="确认切换步骤"
+        isOpen={step9NavMode !== null}
+        onClose={closeStep9NavModal}
+        title={step9NavMode === 'reenter' ? '确认进入第九步' : '确认退出第九步'}
         maxWidth="max-w-md"
       >
         <div className="space-y-4 text-xs">
           <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-300">
             <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div className="opacity-70 leading-relaxed">
-              {pendingStepNav && completedSteps.has(pendingStepNav) ? (
+              {step9NavMode === 'reenter' ? (
                 <>
-                  当前第九步实操尚未完成。切换至已完成的步骤后，返回第九步需<strong>重新制作</strong>读数仪设置与数据采集，是否继续？
+                  上次核心采集尚未完成。重新进入第九步将<strong>清除已保存的半途数据</strong>，并从头开始核心采集。是否确认进入？
                 </>
               ) : (
                 <>
-                  当前第九步实操尚未完成。离开后将不会保留当前进度，返回需重新制作，是否继续？
+                  退出当前步骤时，答题数据将提交保存；重新进入第九步时需要<strong>重新进行核心采集</strong>。是否退出？
                 </>
               )}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowStep9LeaveConfirm(false);
-                setPendingStepNav(null);
-              }}
-              className="px-5"
-            >
+            <Button variant="secondary" onClick={closeStep9NavModal} className="px-5">
               取消
             </Button>
-            <Button onClick={confirmLeaveStep9} className="px-5">
-              确认切换
+            <Button onClick={confirmStep9Nav} className="px-5">
+              {step9NavMode === 'reenter' ? '确认进入' : '确认退出'}
             </Button>
           </div>
         </div>

@@ -1,7 +1,11 @@
 import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
-import { registerOnRestore } from '@odoprd/capture-sdk'
 
 type RestoreHandler = (state: Record<string, unknown>) => void
+
+/** 本地 dev 用 stub；接入 @odoprd/capture-sdk 时可改回 SDK 的 registerOnRestore */
+function registerOnRestore(onRestore: RestoreHandler): () => void {
+  return window.__ODO_PRD__?.registerOnRestore?.(onRestore) ?? (() => {})
+}
 
 export function useOdoPrdBridge(
   snapshot: Record<string, unknown>,

@@ -100,6 +100,16 @@ export const saveStepDraft = (stepId: string, draft: any) => {
   });
 };
 
+export const persistCurrentStepBeforeLeave = (
+  stepId: string,
+  data: unknown,
+  isCompleted: boolean,
+) => {
+  if (!data) return;
+  if (isCompleted) saveStepResult(stepId, data);
+  else saveStepProgress(stepId, data);
+};
+
 export const clearStepProgress = (stepId: string) => {
   const session = loadTrainingSession();
   const { [stepId]: _removedResult, ...results } = session.results;
