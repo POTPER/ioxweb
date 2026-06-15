@@ -16,12 +16,17 @@ import {
 } from './components/steps';
 import { ReportPage, generateMockReport } from './components/ReportPage';
 import { StartPage } from './components/StartPage';
+import { PracticeHub } from './components/practice/PracticeHub';
+import { PracticeSession } from './components/practice/PracticeSession';
+import { loadPracticeSession } from './lib/practiceStorage';
+import type { PracticeInstrumentId } from './components/practice/practiceInstruments';
 import { FrameworkGuide } from './components/FrameworkGuide';
 import { MultiPeriodChart } from './components/MultiPeriodChart';
 import { JitterFormulaPlayground } from './components/JitterFormulaPlayground';
 import { Step9SpecStudio } from './components/Step9SpecStudio';
+import { DevFloatingPanel } from './components/DevFloatingPanel';
 import { Modal, Button } from './components/Common';
-import { WireframeProvider, useWireframe } from './components/WireframeContext';
+import { WireframeProvider } from './components/WireframeContext';
 import { Layout, ShieldCheck, Activity, FileText, Settings, ChevronRight, Award, FolderOpen, CheckCircle2, LogOut } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,8 +37,14 @@ import { exportAllConnectivityGifs } from './lib/exportConnectivityGif';
 import bgPdfUrl from '../assets/工程资料X.pdf?url';
 import standardPdfUrl from '../assets/GB50497-建筑基坑工程监测技术标准-3.pdf?url';
 
+type AppView = 'start' | 'training' | 'practiceHub' | 'practiceSession';
+
 function AppInner() {
-  const [hasStarted, setHasStarted] = useState(false);
+  const [appView, setAppView] = useState<AppView>('start');
+  const [activeInstrumentId, setActiveInstrumentId] = useState<PracticeInstrumentId>('inclinometer');
+  const [completedInstruments, setCompletedInstruments] = useState<Set<PracticeInstrumentId>>(
+    () => new Set(loadPracticeSession().completed),
+  );
   const [currentStep, setCurrentStep] = useState<StepId>('1');
   const [showReport, setShowReport] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
@@ -165,16 +176,64 @@ function AppInner() {
 
   const currentStepInfo = steps.find(s => s.id === currentStep);
 
-  if (!hasStarted) {
-    return <StartPage onStart={() => setHasStarted(true)} />;
-  }
+  const devFullActions = {
+    onAssessmentReport: handleDevAssessmentReport,
+    onResetToStep1: () => {
+      clearTrainingSession();
+      setStepData({});
+      setCurrentStep('1');
+      setCompletedSteps(new Set());
+      setAllUnlocked(false);
+      setShowTransition(false);
+    },
+    onToggleAllUnlocked: () => setAllUnlocked(v => !v),
+    allUnlocked,
+    onOpenFrameworkGuide: () => { setShowFrameworkGuide(true); setShowDevPanel(false); },
+    onOpenMultiPeriodChart: () => { setShowMultiPeriodChart(true); setShowDevPanel(false); },
+    onOpenStep9SpecStudio: () => { setShowStep9SpecStudio(true); setShowDevPanel(false); },
+    onOpenJitterPlayground: () => { setShowJitterPlayground(true); setShowDevPanel(false); },
+    onExportConnectivityGifs: exportAllConnectivityGifs,
+  };
 
-  if (showReport && reportData) {
-    return <ReportPage data={reportData} onBack={() => { setShowReport(false); setCurrentStep('1'); setHasStarted(false); }} />;
-  }
+  const renderMainView = () => {
+    if (showReport && reportData) {
+      return (
+        <ReportPage
+          data={reportData}
+          onBack={() => { setShowReport(false); setCurrentStep('1'); setAppView('start'); }}
+        />
+      );
+    }
 
-  if (showTransition) {
-    return (
+    if (appView === 'start') {
+      return <StartPage onStartTraining={() => setAppView('training')} />;
+    }
+
+    if (appView === 'practiceHub') {
+      return (
+        <PracticeHub
+          onBack={() => setAppView('start')}
+          onStartPractice={(id) => {
+            setActiveInstrumentId(id);
+            setAppView('practiceSession');
+          }}
+          completedIds={completedInstruments}
+        />
+      );
+    }
+
+    if (appView === 'practiceSession') {
+      return (
+        <PracticeSession
+          instrumentId={activeInstrumentId}
+          onBack={() => setAppView('practiceHub')}
+          onComplete={(id) => setCompletedInstruments(prev => new Set(prev).add(id))}
+        />
+      );
+    }
+
+    if (showTransition) {
+      return (
       <div className="min-h-screen flex items-center justify-center bg-industrial-bg p-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
@@ -197,9 +256,9 @@ function AppInner() {
         </motion.div>
       </div>
     );
-  }
+    }
 
-  return (
+    return (
     <div className="min-h-screen flex flex-col bg-industrial-bg text-industrial-fg selection:bg-industrial-fg selection:text-industrial-bg">
       {/* Header */}
       <header className="h-14 border-b border-industrial-fg bg-white flex items-center px-6 sticky top-0 z-50 relative">
@@ -406,103 +465,36 @@ function AppInner() {
           </div>
         </div>
       </Modal>
+    </div>
+    );
+  };
 
-      {/* Framework Guide */}
+  const showDevFloating = devVisible && (appView === 'start' || appView === 'training');
+  const devPanelMode = appView === 'training' ? 'full' : 'minimal';
+
+  return (
+    <>
+      {renderMainView()}
       {showFrameworkGuide && <FrameworkGuide onClose={() => setShowFrameworkGuide(false)} />}
-      {/* Multi-Period Chart */}
       {showMultiPeriodChart && <MultiPeriodChart onClose={() => setShowMultiPeriodChart(false)} />}
-      {/* Jitter Formula Playground */}
       {showJitterPlayground && <JitterFormulaPlayground onClose={() => setShowJitterPlayground(false)} />}
       {showStep9SpecStudio && <Step9SpecStudio onClose={() => setShowStep9SpecStudio(false)} />}
-      {/* DEV Floating Panel */}
-      {devVisible && <div
-        ref={devPanelRef}
-        className="fixed z-[9999] flex flex-col items-end space-y-2 pointer-events-auto"
-        style={{ right: devPos.right, bottom: devPos.bottom }}
-      >
-        {showDevPanel && (
-          <div className="bg-white border-2 border-industrial-fg shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] p-4 w-52 space-y-2">
-            <div className="text-[9px] font-mono font-bold uppercase tracking-widest opacity-40 border-b border-industrial-fg/20 pb-2 mb-3">DEV TOOLS</div>
-            <button
-              onClick={handleDevAssessmentReport}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-green-300 bg-green-50 hover:bg-green-100 transition-colors text-green-700"
-            >
-              评估报告
-            </button>
-            <button
-              onClick={() => { clearTrainingSession(); setStepData({}); setCurrentStep('1'); setCompletedSteps(new Set()); setAllUnlocked(false); setShowTransition(false); }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              重置到步骤1
-            </button>
-            <button
-              onClick={() => setAllUnlocked(v => !v)}
-              className={cn("w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors", allUnlocked && "bg-green-100 border-green-400")}
-            >
-              {allUnlocked ? '✓ 已全部解锁' : '全部解锁'}
-            </button>
-            <button
-              onClick={() => { setShowFrameworkGuide(true); setShowDevPanel(false); }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              界面框架
-            </button>
-            <button
-              onClick={() => { setShowMultiPeriodChart(true); setShowDevPanel(false); }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              多期曲线
-            </button>
-            <button
-              onClick={() => { setShowStep9SpecStudio(true); setShowDevPanel(false); }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              Step9 产品说明
-            </button>
-            <button
-              onClick={() => { setShowJitterPlayground(true); setShowDevPanel(false); }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors"
-            >
-              抖动公式
-            </button>
-            <button
-              onClick={async (e) => {
-                const btn = e.currentTarget;
-                const original = btn.textContent;
-                btn.textContent = '生成中…';
-                btn.setAttribute('disabled', 'true');
-                try { await exportAllConnectivityGifs(); }
-                finally { btn.textContent = original; btn.removeAttribute('disabled'); }
-              }}
-              className="w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors disabled:opacity-50"
-            >
-              导出通畅性 GIF
-            </button>
-            <WireframeToggle />
-          </div>
-        )}
-        <button
-          onMouseDown={handleDevDragStart}
-          onClick={() => setShowDevPanel(v => !v)}
-          className="w-9 h-9 bg-industrial-fg text-industrial-bg flex items-center justify-center font-mono font-bold text-[10px] hover:opacity-80 transition-all shadow-[2px_2px_0px_0px_rgba(20,20,20,0.3)] cursor-move select-none"
-          title="DEV — 拖拽移动"
-        >
-          DEV
-        </button>
-      </div>}
-    </div>
-  );
-}
-
-function WireframeToggle() {
-  const { wireframeMode, setWireframeMode } = useWireframe();
-  return (
-    <button
-      onClick={() => setWireframeMode(!wireframeMode)}
-      className={cn("w-full text-left px-3 py-2 text-[11px] font-mono border border-industrial-fg/20 hover:bg-industrial-bg transition-colors", wireframeMode && "bg-yellow-100 border-yellow-400")}
-    >
-      {wireframeMode ? '◼ 线框模式 ON' : '线框模式'}
-    </button>
+      {showDevFloating && (
+        <DevFloatingPanel
+          mode={devPanelMode}
+          showPanel={showDevPanel}
+          onTogglePanel={() => setShowDevPanel(v => !v)}
+          devPos={devPos}
+          onDragStart={handleDevDragStart}
+          panelRef={devPanelRef}
+          onEnterPractice={() => {
+            setAppView('practiceHub');
+            setShowDevPanel(false);
+          }}
+          fullActions={devPanelMode === 'full' ? devFullActions : undefined}
+        />
+      )}
+    </>
   );
 }
 

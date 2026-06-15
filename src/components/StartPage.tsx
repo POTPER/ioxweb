@@ -4,7 +4,7 @@ import { ChevronRight, ImageIcon } from 'lucide-react';
 import { Button } from './Common';
 
 interface StartPageProps {
-  onStart: () => void;
+  onStartTraining: () => void;
 }
 
 const FLOW_STEPS = [
@@ -21,7 +21,7 @@ const TASK_INFO: { label: string; value: string }[] = [
   { label: '监测要求', value: '按提示完成水平位移检测任务' },
 ];
 
-export const StartPage: React.FC<StartPageProps> = ({ onStart }) => {
+export const StartPage: React.FC<StartPageProps> = ({ onStartTraining }) => {
   return (
     <div className="min-h-screen bg-industrial-bg text-industrial-fg flex flex-col">
       {/* Title */}
@@ -97,10 +97,10 @@ export const StartPage: React.FC<StartPageProps> = ({ onStart }) => {
             {/* Start button */}
             <div className="flex justify-end pt-2 border-t border-industrial-fg/10">
               <Button
-                onClick={onStart}
+                onClick={onStartTraining}
                 className="px-10 py-3 text-sm tracking-[0.3em] flex items-center gap-2"
               >
-                开 始
+                开始实训
                 <ChevronRight size={16} />
               </Button>
             </div>

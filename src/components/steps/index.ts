@@ -6,7 +6,7 @@ export { Inspection } from './Step5_Inspection';
 export { ConnectivityTest } from './Step6_ConnectivityTest';
 export { InitialMeasurement } from './Step7_InitialMeasurement';
 export { PrepAndSafety } from './Step8_PrepAndSafety';
-export { InstrumentSetting } from './Step9_InstrumentSetting';
+export { InstrumentSetting, type InstrumentSettingHandle, type InstrumentSettingProps } from './Step9_InstrumentSetting';
 export { DataProcessing } from './Step10_DataProcessing';
 export { ReportCompilation } from './Step11_ReportCompilation';
 export { MultiPeriodAnalysis } from './Step12_MultiPeriodAnalysis';

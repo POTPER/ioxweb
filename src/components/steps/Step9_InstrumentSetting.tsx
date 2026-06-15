@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { TechnicalCard, Button, Modal } from '../Common';
 import { TrainingQuestionButton } from '../TrainingInteractionButtons';
 import { motion } from 'motion/react';
@@ -60,13 +60,27 @@ const getReadingQuestionId = (type: 'forward' | 'reverse', depth: number) => {
   return `acq.instrument.${type}${depthKey}`;
 };
 
-export const InstrumentSetting: React.FC<{
+export type InstrumentSettingHandle = { submit: () => void };
+
+export interface InstrumentSettingProps {
   onNext: (data: any) => void;
   onProgress?: (data: any) => void;
   devAutoStart?: boolean;
   initialSnapshot?: Step9Snapshot | null;
   previewMode?: boolean;
-}> = ({ onNext, onProgress, devAutoStart, initialSnapshot, previewMode }) => {
+  manualSubmit?: boolean;
+  onSubmitReady?: (ready: boolean) => void;
+}
+
+export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentSettingProps>(({
+  onNext,
+  onProgress,
+  devAutoStart,
+  initialSnapshot,
+  previewMode,
+  manualSubmit,
+  onSubmitReady,
+}, ref) => {
   // --- Phase & device state ---
   const [phase, setPhase] = useState<Phase>(1);
   const [isPoweredOn, setIsPoweredOn] = useState(false);
@@ -678,20 +692,26 @@ export const InstrumentSetting: React.FC<{
 
   const canSubmit = phase >= 5 && cleanupDone.power && cleanupDone.cable;
 
-  useEffect(() => {
-    if (previewMode || !canSubmit) return;
-    handleSubmit();
-  }, [canSubmit, previewMode]);
-
-  const enterCleanupPhase = () => setPhase(6);
-
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     const finalAnswers: Record<string, UserAnswerValue> = {
       ...recordedAnswers,
     };
 
     onNext(buildScoreData(finalAnswers));
-  };
+  }, [onNext, recordedAnswers, readings, params, probe, remeasureParams]);
+
+  useImperativeHandle(ref, () => ({ submit: handleSubmit }), [handleSubmit]);
+
+  useEffect(() => {
+    onSubmitReady?.(canSubmit);
+  }, [canSubmit, onSubmitReady]);
+
+  useEffect(() => {
+    if (previewMode || manualSubmit || !canSubmit) return;
+    handleSubmit();
+  }, [canSubmit, previewMode, manualSubmit, handleSubmit]);
+
+  const enterCleanupPhase = () => setPhase(6);
 
   // --- LCD Render ---
   const renderLCD = () => {
@@ -1082,7 +1102,7 @@ export const InstrumentSetting: React.FC<{
       <Modal
         isOpen={showDataTable}
         onClose={() => setShowDataTable(false)}
-        title={`数据采集表 — 测区${params.area} · 孔CX-${params.hole} · 孔深${params.depth}m · 间距${probe.stepLength}m`}
+        title="数据采集表"
         maxWidth="max-w-3xl"
       >
         <div className="overflow-auto max-h-[60vh] border border-industrial-fg/10">
@@ -1240,4 +1260,6 @@ export const InstrumentSetting: React.FC<{
       </Modal>
     </div>
   );
-};
+});
+
+InstrumentSetting.displayName = 'InstrumentSetting';
