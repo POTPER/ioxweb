@@ -8,6 +8,7 @@ import { Modal, Button } from '../Common';
 import { ReportPage, generatePracticeReport, type ReportData } from '../ReportPage';
 import { PracticePageShell } from './PracticePageShell';
 import { savePracticeProgress, savePracticeResult } from '../../lib/practiceStorage';
+import { trainingStepsByAppId } from '../../data/trainingContent';
 import {
   getPracticeInstrument,
   PRACTICE_BACK_CONFIRM_MESSAGE,
@@ -32,6 +33,11 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
   const [showReport, setShowReport] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
 
+  const taskDescription =
+    instrument?.appStepId
+      ? trainingStepsByAppId[instrument.appStepId]?.taskDescription ?? ''
+      : '';
+
   const handlePracticeProgress = (data: any) => {
     if (data) {
       savePracticeProgress(instrumentId, data);
@@ -41,7 +47,7 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
   const handlePracticeSubmit = (data: any) => {
     if (data) {
       savePracticeResult(instrumentId, data);
-      setReportData(generatePracticeReport(instrument.name, data));
+      setReportData(generatePracticeReport(instrument!.name, data));
     }
     if (!hasMarkedComplete) {
       onComplete(instrumentId);
@@ -54,17 +60,6 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
   const handleConfirmSubmit = () => {
     step9Ref.current?.submit();
   };
-
-  const submitFooter = (
-    <div className="max-w-6xl mx-auto px-6 md:px-8 flex justify-center">
-      <Button
-        onClick={() => setShowSubmitConfirm(true)}
-        className="px-6 py-2 text-[10px] tracking-[0.2em]"
-      >
-        提交练习
-      </Button>
-    </div>
-  );
 
   if (!instrument?.appStepId) {
     return (
@@ -97,14 +92,9 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
       onBack={onBack}
       confirmOnBack
       confirmMessage={PRACTICE_BACK_CONFIRM_MESSAGE}
-      footer={submitFooter}
     >
       <main className="flex-1 overflow-y-auto px-6 pb-10 md:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="border-l-[3px] border-industrial-fg bg-industrial-fg/5 px-4 py-3 mb-6 text-[12px] font-medium">
-            <span className="text-industrial-fg">{instrument.name}</span>
-          </div>
-
+        <div className="max-w-[1440px] mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={instrumentId}
@@ -117,6 +107,22 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
                 manualSubmit
                 onNext={handlePracticeSubmit}
                 onProgress={handlePracticeProgress}
+                practicePanel={
+                  <div className="flex flex-col h-full min-h-0 p-6 md:p-8">
+                    <div className="border-b border-industrial-fg pb-3 mb-4 shrink-0">
+                      <h2 className="text-sm font-bold tracking-[0.15em] uppercase">任务说明</h2>
+                    </div>
+                    <p className="flex-1 min-h-0 overflow-y-auto text-[13px] leading-relaxed">{taskDescription}</p>
+                    <div className="pt-4 mt-4 border-t border-industrial-fg/10 shrink-0">
+                      <Button
+                        onClick={() => setShowSubmitConfirm(true)}
+                        className="w-full py-3 text-[10px] tracking-[0.2em]"
+                      >
+                        提交练习
+                      </Button>
+                    </div>
+                  </div>
+                }
               />
             </motion.div>
           </AnimatePresence>

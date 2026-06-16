@@ -70,6 +70,7 @@ export interface InstrumentSettingProps {
   previewMode?: boolean;
   manualSubmit?: boolean;
   onSubmitReady?: (ready: boolean) => void;
+  practicePanel?: React.ReactNode;
 }
 
 export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentSettingProps>(({
@@ -80,6 +81,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   previewMode,
   manualSubmit,
   onSubmitReady,
+  practicePanel,
 }, ref) => {
   // --- Phase & device state ---
   const [phase, setPhase] = useState<Phase>(1);
@@ -890,16 +892,142 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
     }
   };
 
+  const planeView = (
+    <WireframePlaceholder label="M1-M3: 测斜管平面图（等距轴测图 + 旋转控制 + 孔口方位热点）" className="min-h-[80px]">
+      <TechnicalCard title="测斜管平面图">
+        <div className={cn("relative bg-white border-2 border-industrial-fg flex flex-col", !fieldUnlocked && "opacity-40 pointer-events-none")}>
+          <div className="relative h-60 bg-gray-50 flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono opacity-40 pointer-events-none">
+              [等距轴测图占位 · {probeRotation}°]
+            </div>
+            <img
+              key={probeRotation}
+              src={`/images/probe-${probeRotation}.png`}
+              alt={`探头旋转 ${probeRotation}°`}
+              className="relative max-h-full max-w-full object-contain transition-opacity duration-200"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+              onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'visible'; }}
+            />
+            {rotationConfirmed && (['N', 'E', 'S', 'W'] as const).map(dir => {
+              const pos: Record<string, React.CSSProperties> = {
+                N: { top: '28%', left: '50%', transform: 'translateX(-50%)' },
+                E: { top: '50%', right: '28%', transform: 'translateY(-50%)' },
+                S: { bottom: '28%', left: '50%', transform: 'translateX(-50%)' },
+                W: { top: '50%', left: '28%', transform: 'translateY(-50%)' },
+              };
+              return (
+                <button key={dir} onClick={() => setPendingAlignment(dir)}
+                  className={cn("absolute w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold z-10 transition-all",
+                    cableAlignment === dir
+                      ? "bg-industrial-fg text-white border-industrial-fg scale-110"
+                      : "bg-white border-industrial-fg/40 hover:border-industrial-fg animate-pulse"
+                  )} style={pos[dir]}>{dir}</button>
+              );
+            })}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+              {!rotationConfirmed ? (
+                <>
+                  <button onClick={() => setProbeRotation(r => (r + 90) % 360)}
+                    className="px-2 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
+                    旋转 +90°
+                  </button>
+                  <button onClick={() => setProbeRotation(r => (r + 270) % 360)}
+                    className="px-2 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
+                    旋转 −90°
+                  </button>
+                  <button onClick={() => setRotationConfirmed(true)}
+                    className="px-3 py-1 border-2 border-industrial-fg bg-industrial-fg text-white text-[9px] font-bold font-mono shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
+                    确定
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setRotationConfirmed(false)}
+                  className="px-3 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
+                  重新旋转
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </TechnicalCard>
+    </WireframePlaceholder>
+  );
+
+  const deviceView = (
+    <WireframePlaceholder label="I1-I7: 读数仪仿真设备（LCD 屏 · ↑↓←OK 四键 · DC 充电口 · 探头测量口 · USB 通讯口 · ⏻ 电源键）" className="min-h-[320px]">
+      <div className="relative bg-white border-2 border-industrial-fg shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] p-4 flex flex-col space-y-3">
+        <div className="flex-1 min-h-[190px] border-2 border-industrial-fg p-1 flex">
+          <div className="flex-1 border border-industrial-fg/30 overflow-hidden">{renderLCD()}</div>
+        </div>
+        <div className="text-industrial-fg/30 text-[9px] text-center font-bold font-mono uppercase tracking-[0.3em]">测 斜 仪</div>
+        <div className="border-t-2 border-industrial-fg/20 pt-3 mt-1 flex items-end justify-between">
+          <div className="flex flex-col items-center space-y-1">
+            <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">导航</span>
+            <div className="flex space-x-1">
+              <button onClick={() => handleNav('back')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">←</button>
+              <button onClick={() => handleNav('ok')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-fg hover:opacity-90 active:shadow-none transition-all flex items-center justify-center text-white text-xs font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">OK</button>
+              <button onClick={() => handleNav('up')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">↑</button>
+              <button onClick={() => handleNav('down')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">↓</button>
+            </div>
+          </div>
+          <div className="w-px h-10 bg-industrial-fg/20" />
+          <div className="flex flex-col items-center space-y-1">
+            <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">接口</span>
+            <div className="flex space-x-1 items-end">
+              <div className="flex flex-col items-center space-y-0.5">
+                <div className="w-7 h-7 bg-industrial-bg border-2 border-industrial-fg/30 flex items-center justify-center">
+                  <span className="text-[7px] font-mono text-industrial-fg/40">DC</span>
+                </div>
+                <span className="text-[6px] font-mono opacity-40">充电</span>
+              </div>
+              <button onClick={handleCableClick} className="flex flex-col items-center space-y-0.5">
+                <div className={cn(
+                  "w-9 h-9 border-2 flex items-center justify-center transition-all",
+                  isConnected ? "bg-blue-500 border-blue-600 text-white" : "bg-industrial-bg border-industrial-fg hover:bg-industrial-fg hover:text-white text-industrial-fg"
+                )}>
+                  <span className="text-[8px] font-mono font-bold">{isConnected ? '●' : '○'}</span>
+                </div>
+                <span className={cn("text-[6px] font-mono", isConnected ? "text-blue-600 font-bold" : "opacity-40")}>探头</span>
+              </button>
+              <div className="flex flex-col items-center space-y-0.5">
+                <div className="w-7 h-7 bg-industrial-bg border-2 border-industrial-fg/30 flex items-center justify-center">
+                  <span className="text-[7px] font-mono text-industrial-fg/40">USB</span>
+                </div>
+                <span className="text-[6px] font-mono opacity-40">通讯</span>
+              </div>
+            </div>
+          </div>
+          <div className="w-px h-10 bg-industrial-fg/20" />
+          <div className="flex flex-col items-center space-y-1">
+            <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">电源</span>
+            <button onClick={handlePower} className={cn(
+              "w-9 h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none",
+              isPoweredOn ? "bg-red-500 border-red-700 text-white" : "bg-industrial-bg border-industrial-fg text-industrial-fg/40 hover:bg-industrial-fg hover:text-white"
+            )}><span className="text-[10px] font-bold">⏻</span></button>
+          </div>
+        </div>
+      </div>
+    </WireframePlaceholder>
+  );
+
   return (
     <div className="space-y-4">
       {/* Task bar */}
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className={cn(
+        practicePanel
+          ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)_340px] gap-4 lg:items-stretch'
+          : 'grid grid-cols-1 lg:grid-cols-12 gap-4',
+      )}>
         {/* Left: Profile */}
-        <div className="lg:col-span-7 flex flex-col space-y-3">
+        <div className={cn(
+          practicePanel
+            ? 'min-w-0 flex flex-col lg:col-start-1 lg:self-stretch h-full min-h-0'
+            : 'lg:col-span-7 flex flex-col space-y-3',
+        )}>
           <WireframePlaceholder label="D1-D3: 测斜管剖面图（0~20m · 基坑侧/围护侧 · 探头随深度上移）+ 操作控制区（深度显示 · 间距输入 · ▲上提/▼下放 · 📋采集表按钮）" className="min-h-[400px]">
-          <TechnicalCard title="测斜管剖面图" className="flex-1 flex flex-col">
+          <TechnicalCard title="测斜管剖面图" className={cn('flex-1 flex flex-col', practicePanel && 'h-full min-h-0')}>
             <div className="relative flex-1 min-h-[280px] bg-gray-100 border-2 border-dashed border-gray-400 overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center text-gray-400 font-mono text-xs text-center px-4 pointer-events-none">img:测斜管剖面图（0~20m · 基坑侧/围护侧）</div>
               {/* Depth markers */}
@@ -962,133 +1090,22 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
 
         </div>
 
-        {/* Right: Plane + Device */}
+        {practicePanel ? (
+          <>
+            <div className="min-w-0 flex flex-col gap-0 lg:col-start-2 lg:self-stretch">
+              {planeView}
+              {deviceView}
+            </div>
+            <div className="min-w-0 flex flex-col lg:col-start-3 lg:self-stretch border-2 border-industrial-fg bg-white overflow-hidden">
+              {practicePanel}
+            </div>
+          </>
+        ) : (
         <div className="lg:col-span-5 space-y-4">
-          {/* Plane view */}
-          <WireframePlaceholder label="M1-M3: 测斜管平面图（等距轴测图 + 旋转控制 + 孔口方位热点）" className="min-h-[80px]">
-          <TechnicalCard title="测斜管平面图">
-            <div className={cn("relative bg-white border-2 border-industrial-fg flex flex-col", !fieldUnlocked && "opacity-40 pointer-events-none")}>
-              {/* 等距轴测图占位区 — 图片放在 public/images/probe-{0|90|180|270}.png */}
-              <div className="relative h-60 bg-gray-50 flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono opacity-40 pointer-events-none">
-                  [等距轴测图占位 · {probeRotation}°]
-                </div>
-                <img
-                  key={probeRotation}
-                  src={`/images/probe-${probeRotation}.png`}
-                  alt={`探头旋转 ${probeRotation}°`}
-                  className="relative max-h-full max-w-full object-contain transition-opacity duration-200"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                  onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'visible'; }}
-                />
-
-                {/* 孔口方位热点：仅在确定旋转后显示 */}
-                {rotationConfirmed && (['N', 'E', 'S', 'W'] as const).map(dir => {
-                  const pos: Record<string, React.CSSProperties> = {
-                    N: { top: '28%', left: '50%', transform: 'translateX(-50%)' },
-                    E: { top: '50%', right: '28%', transform: 'translateY(-50%)' },
-                    S: { bottom: '28%', left: '50%', transform: 'translateX(-50%)' },
-                    W: { top: '50%', left: '28%', transform: 'translateY(-50%)' },
-                  };
-                  return (
-                    <button key={dir} onClick={() => setPendingAlignment(dir)}
-                      className={cn("absolute w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold z-10 transition-all",
-                        cableAlignment === dir
-                          ? "bg-industrial-fg text-white border-industrial-fg scale-110"
-                          : "bg-white border-industrial-fg/40 hover:border-industrial-fg animate-pulse"
-                      )} style={pos[dir]}>{dir}</button>
-                  );
-                })}
-
-                {/* 控制按钮组 — 浮在图片底部 */}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
-                  {!rotationConfirmed ? (
-                    <>
-                      <button onClick={() => setProbeRotation(r => (r + 90) % 360)}
-                        className="px-2 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
-                        旋转 +90°
-                      </button>
-                      <button onClick={() => setProbeRotation(r => (r + 270) % 360)}
-                        className="px-2 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
-                        旋转 −90°
-                      </button>
-                      <button onClick={() => setRotationConfirmed(true)}
-                        className="px-3 py-1 border-2 border-industrial-fg bg-industrial-fg text-white text-[9px] font-bold font-mono shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
-                        确定
-                      </button>
-                    </>
-                  ) : (
-                    <button onClick={() => setRotationConfirmed(false)}
-                      className="px-3 py-1 border-2 border-industrial-fg bg-white/90 text-[9px] font-bold font-mono hover:bg-industrial-fg hover:text-white shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none transition-all">
-                      重新旋转
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TechnicalCard>
-          </WireframePlaceholder>
-
-          {/* Device */}
-          <WireframePlaceholder label="I1-I7: 读数仪仿真设备（LCD 屏 · ↑↓←OK 四键 · DC 充电口 · 探头测量口 · USB 通讯口 · ⏻ 电源键）" className="min-h-[320px]">
-          <div className="relative bg-white border-2 border-industrial-fg shadow-[4px_4px_0px_0px_rgba(20,20,20,1)] p-4 flex flex-col space-y-3">
-            <div className="flex-1 min-h-[190px] border-2 border-industrial-fg p-1 flex">
-              <div className="flex-1 border border-industrial-fg/30 overflow-hidden">{renderLCD()}</div>
-            </div>
-            <div className="text-industrial-fg/30 text-[9px] text-center font-bold font-mono uppercase tracking-[0.3em]">测 斜 仪</div>
-            {/* Controls + Ports — single row, grouped */}
-            <div className="border-t-2 border-industrial-fg/20 pt-3 mt-1 flex items-end justify-between">
-              {/* Group 1: Nav keys */}
-              <div className="flex flex-col items-center space-y-1">
-                <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">导航</span>
-                <div className="flex space-x-1">
-                  <button onClick={() => handleNav('back')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">←</button>
-                  <button onClick={() => handleNav('ok')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-fg hover:opacity-90 active:shadow-none transition-all flex items-center justify-center text-white text-xs font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">OK</button>
-                  <button onClick={() => handleNav('up')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">↑</button>
-                  <button onClick={() => handleNav('down')} className="w-9 h-9 border-2 border-industrial-fg bg-industrial-bg hover:bg-industrial-fg hover:text-white active:shadow-none transition-all flex items-center justify-center text-industrial-fg text-sm font-bold shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]">↓</button>
-                </div>
-              </div>
-              <div className="w-px h-10 bg-industrial-fg/20" />
-              {/* Group 2: Ports */}
-              <div className="flex flex-col items-center space-y-1">
-                <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">接口</span>
-                <div className="flex space-x-1 items-end">
-                  <div className="flex flex-col items-center space-y-0.5">
-                    <div className="w-7 h-7 bg-industrial-bg border-2 border-industrial-fg/30 flex items-center justify-center">
-                      <span className="text-[7px] font-mono text-industrial-fg/40">DC</span>
-                    </div>
-                    <span className="text-[6px] font-mono opacity-40">充电</span>
-                  </div>
-                  <button onClick={handleCableClick} className="flex flex-col items-center space-y-0.5">
-                    <div className={cn(
-                      "w-9 h-9 border-2 flex items-center justify-center transition-all",
-                      isConnected ? "bg-blue-500 border-blue-600 text-white" : "bg-industrial-bg border-industrial-fg hover:bg-industrial-fg hover:text-white text-industrial-fg"
-                    )}>
-                      <span className="text-[8px] font-mono font-bold">{isConnected ? '●' : '○'}</span>
-                    </div>
-                    <span className={cn("text-[6px] font-mono", isConnected ? "text-blue-600 font-bold" : "opacity-40")}>探头</span>
-                  </button>
-                  <div className="flex flex-col items-center space-y-0.5">
-                    <div className="w-7 h-7 bg-industrial-bg border-2 border-industrial-fg/30 flex items-center justify-center">
-                      <span className="text-[7px] font-mono text-industrial-fg/40">USB</span>
-                    </div>
-                    <span className="text-[6px] font-mono opacity-40">通讯</span>
-                  </div>
-                </div>
-              </div>
-              <div className="w-px h-10 bg-industrial-fg/20" />
-              {/* Group 3: Power */}
-              <div className="flex flex-col items-center space-y-1">
-                <span className="text-[7px] font-mono opacity-40 uppercase tracking-wider">电源</span>
-                <button onClick={handlePower} className={cn(
-                  "w-9 h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] active:shadow-none",
-                  isPoweredOn ? "bg-red-500 border-red-700 text-white" : "bg-industrial-bg border-industrial-fg text-industrial-fg/40 hover:bg-industrial-fg hover:text-white"
-                )}><span className="text-[10px] font-bold">⏻</span></button>
-              </div>
-            </div>
-          </div>
-          </WireframePlaceholder>
+          {planeView}
+          {deviceView}
         </div>
+        )}
       </div>
 
       {/* Cleanup */}
