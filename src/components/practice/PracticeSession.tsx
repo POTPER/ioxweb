@@ -34,9 +34,10 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
   const [reportData, setReportData] = useState<ReportData | null>(null);
 
   const taskDescription =
-    instrument?.appStepId
+    instrument?.taskDescription
+    ?? (instrument?.appStepId
       ? trainingStepsByAppId[instrument.appStepId]?.taskDescription ?? ''
-      : '';
+      : '');
 
   const handlePracticeProgress = (data: any) => {
     if (data) {
@@ -144,7 +145,7 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
               取消
             </Button>
             <Button onClick={handleConfirmSubmit} className="px-5">
-              确认提交
+              确认
             </Button>
           </div>
         </div>

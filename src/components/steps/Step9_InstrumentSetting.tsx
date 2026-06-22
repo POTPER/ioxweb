@@ -53,6 +53,22 @@ const sensorJitter = (elapsed: number, totalDuration: number, amplitude: number)
 const ANOMALY_DEPTH = 12.5;
 const CHECKSUM_THRESHOLD = 5;
 const TOTAL_DEPTH = 20;
+
+type ProbeDirection = '向上' | '向下';
+
+const isProbeUpward = (direction: ProbeDirection) => direction === '向上';
+
+const getManualDepth = (
+  pointIndex: number,
+  stepLength: number,
+  direction: ProbeDirection,
+) => isProbeUpward(direction)
+  ? TOTAL_DEPTH - pointIndex * stepLength
+  : pointIndex * stepLength;
+
+const getInitialMeasureDepth = (direction: ProbeDirection) =>
+  isProbeUpward(direction) ? TOTAL_DEPTH : 0;
+
 const orientationByRotation: Record<number, 'A' | 'B' | 'C' | 'D'> = { 0: 'A', 90: 'B', 180: 'C', 270: 'D' };
 
 const getReadingQuestionId = (type: 'forward' | 'reverse', depth: number) => {
@@ -96,6 +112,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   const [cableBeforeBoot, setCableBeforeBoot] = useState<boolean | null>(null);
   const [cleanupOrder, setCleanupOrder] = useState<string[]>([]);
   const [cleanupDone, setCleanupDone] = useState({ power: false, cable: false });
+  const [hasStartedMeasurement, setHasStartedMeasurement] = useState(false);
   const [recordedAnswers, setRecordedAnswers] = useState<Record<string, UserAnswerValue>>({});
 
   // --- LCD state ---
@@ -145,6 +162,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   // --- Scoring tracking ---
   const stabilityScores = useRef<Record<string, any>>({});
   const lockedProcessAnswers = useRef<Set<string>>(new Set());
+  const recordedAnswersRef = useRef<Record<string, UserAnswerValue>>({});
   const timerRef = useRef<any>(null);
 
   const cableQuestion = acqInstrumentScoringConfig.questions.find(question => question.questionId === 'acq.instrument.cable');
@@ -155,7 +173,11 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   const menuItems = ['1. 开始新的测量', '2. 测孔参数设置', '3. 探头设置', '4. 补测数据点', '5. 时间设置'];
 
   const recordAnswer = useCallback((questionId: string, answer: UserAnswerValue) => {
-    setRecordedAnswers(prev => ({ ...prev, [questionId]: answer }));
+    setRecordedAnswers(prev => {
+      const next = { ...prev, [questionId]: answer };
+      recordedAnswersRef.current = next;
+      return next;
+    });
   }, []);
 
   const recordLockedAnswer = useCallback((questionId: string, answer: UserAnswerValue) => {
@@ -220,10 +242,12 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
     setRemeasureParams(snap.remeasureParams ?? { group: '05', depth: 3.0, direction: '正测' });
     setFoundAnomaly(snap.foundAnomaly ?? false);
     setCleanupDone(snap.cleanupDone ?? { power: false, cable: false });
+    setHasStartedMeasurement(snap.phase >= 4 || Boolean(snap.measureType));
     setCleanupOrder([]);
     setReadings(snap.readings ?? buildEmptyReadings(snap.probe.stepLength));
     setShowDataTable(false);
     setRecordedAnswers({});
+    recordedAnswersRef.current = {};
     setCableBeforeBoot(snap.isConnected ? true : null);
   }, []);
 
@@ -249,15 +273,6 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
       onProgress?.(buildScoreData(recordedAnswers));
     }
   }, [recordedAnswers, previewMode]);
-
-  useEffect(() => {
-    if (cleanupDone.power && cleanupDone.cable) {
-      recordLockedAnswer(
-        'acq.instrument.cleanupOrder',
-        cleanupOrder[0] === '关闭电源' ? 'powerOffBeforeDisconnect' : 'disconnectBeforePowerOff'
-      );
-    }
-  }, [cleanupDone, cleanupOrder, recordLockedAnswer]);
 
   // --- Stabilization timer ---
   const startStabilize = useCallback((pointIndex: number, type: 'forward' | 'reverse') => {
@@ -298,6 +313,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
         }
         next[getReadingQuestionId(type, d)] = value;
       }
+      recordedAnswersRef.current = next;
       return next;
     });
     setReadings(prev => {
@@ -350,7 +366,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   const recordManualPoint = useCallback(() => {
     if (!measureType) return;
     const step = probe.stepLength;
-    const depthVal = TOTAL_DEPTH - manualPoint * step;
+    const depthVal = getManualDepth(manualPoint, step, probe.direction);
     const key = `${measureType}-${manualPoint}`;
     stabilityScores.current[key] = { stable: isStable };
     let measuredValue = getReading(depthVal, measureType);
@@ -378,12 +394,25 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
 
     if (manualPoint < 4) {
       setShowMovePrompt(true);
-      // Wait for user to click 上提 button — do NOT auto-advance
+      // Wait for user to click direction button on profile — do NOT auto-advance
     } else {
       // Auto collect remaining
       autoCollect(measureType);
     }
-  }, [measureType, manualPoint, isStable, probe.stepLength, autoCollect, recordAnswer]);
+  }, [measureType, manualPoint, isStable, probe.stepLength, probe.direction, autoCollect, recordAnswer]);
+
+  const advanceManualPoint = useCallback(() => {
+    if (!showMovePrompt || !isMeasuring || !measureType) return;
+    const nextPoint = manualPoint + 1;
+    const step = probe.stepLength;
+    setShowMovePrompt(false);
+    setManualPoint(nextPoint);
+    setCurrentDepth(getManualDepth(nextPoint, step, probe.direction));
+    startStabilize(nextPoint, measureType);
+  }, [showMovePrompt, isMeasuring, measureType, manualPoint, probe.stepLength, probe.direction, startStabilize]);
+
+  const monitorStep = parseFloat(monitorInterval) || 0.5;
+  const probeUpward = isProbeUpward(probe.direction);
 
   // --- LCD button handler ---
   const handleNav = (dir: 'up' | 'down' | 'ok' | 'back') => {
@@ -395,12 +424,21 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
       if (dir === 'ok') {
         if (cursor === 0) {
           // Start new measurement - clear phases 3-5
+          setHasStartedMeasurement(true);
+          setCleanupDone({ power: false, cable: false });
+          setCleanupOrder([]);
+          lockedProcessAnswers.current.delete('acq.instrument.cleanupOrder');
+          setRecordedAnswers(prev => {
+            const { 'acq.instrument.cleanupOrder': _removed, ...rest } = prev;
+            recordedAnswersRef.current = rest;
+            return rest;
+          });
           initReadings();
           setMeasureType('forward');
           setLcdScreen('confirm-fwd');
           setFieldUnlocked(true);
           setManualPoint(0);
-          setCurrentDepth(TOTAL_DEPTH);
+          setCurrentDepth(getInitialMeasureDepth(probe.direction));
           setProbeRotation(0);
           setRotationConfirmed(false);
           setCableAlignment(null);
@@ -448,7 +486,7 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
         setMeasureType(type);
         setLcdScreen('collect');
         setIsMeasuring(true);
-        setCurrentDepth(TOTAL_DEPTH);
+        setCurrentDepth(getInitialMeasureDepth(probe.direction));
         setManualPoint(0);
         startStabilize(0, type);
         if (type === 'forward') setPhase(4);
@@ -610,14 +648,23 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
   };
 
   // --- Power handler ---
+  const isCleanupPhase = hasStartedMeasurement;
+
   const handlePower = () => {
-    if (phase >= 5) {
-      // Cleanup phase
+    if (isCleanupPhase) {
       if (isPoweredOn) {
         setIsPoweredOn(false);
         setLcdScreen('off');
         setCleanupOrder(prev => prev.includes('关闭电源') ? prev : [...prev, '关闭电源']);
         setCleanupDone(p => ({ ...p, power: true }));
+        recordLockedAnswer('acq.instrument.cleanupOrder', 'powerOffBeforeDisconnect');
+      } else {
+        setIsPoweredOn(true);
+        setBooting(true);
+        setTimeout(() => {
+          setBooting(false);
+          setLcdScreen('main');
+        }, 3000);
       }
       return;
     }
@@ -639,12 +686,15 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
 
   // --- Cable connect/disconnect ---
   const handleCableClick = () => {
-    if (phase >= 5) {
-      // Cleanup: disconnect
-      if (isConnected) {
-        setIsConnected(false);
+    if (isCleanupPhase) {
+      if (cleanupDone.power && isConnected) {
         setCleanupOrder(prev => prev.includes('拔除线材') ? prev : [...prev, '拔除线材']);
-        setCleanupDone(p => ({ ...p, cable: true }));
+        recordLockedAnswer('acq.instrument.cleanupOrder', 'powerOffBeforeDisconnect');
+        setIsConnected(false);
+        setCleanupDone({ power: false, cable: false });
+        setCleanupOrder([]);
+      } else if (!isConnected) {
+        setShowCableModal(true);
       }
       return;
     }
@@ -692,28 +742,15 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
     }
   }, [phase, isMeasuring, autoCollecting, lcdScreen]);
 
-  const canSubmit = phase >= 5 && cleanupDone.power && cleanupDone.cable;
-
   const handleSubmit = useCallback(() => {
-    const finalAnswers: Record<string, UserAnswerValue> = {
-      ...recordedAnswers,
-    };
-
-    onNext(buildScoreData(finalAnswers));
-  }, [onNext, recordedAnswers, readings, params, probe, remeasureParams]);
+    onNext(buildScoreData(recordedAnswersRef.current));
+  }, [onNext, readings, params, probe, remeasureParams]);
 
   useImperativeHandle(ref, () => ({ submit: handleSubmit }), [handleSubmit]);
 
   useEffect(() => {
-    onSubmitReady?.(canSubmit);
-  }, [canSubmit, onSubmitReady]);
-
-  useEffect(() => {
-    if (previewMode || manualSubmit || !canSubmit) return;
-    handleSubmit();
-  }, [canSubmit, previewMode, manualSubmit, handleSubmit]);
-
-  const enterCleanupPhase = () => setPhase(6);
+    onSubmitReady?.(true);
+  }, [onSubmitReady]);
 
   // --- LCD Render ---
   const renderLCD = () => {
@@ -980,14 +1017,29 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
                 </div>
                 <span className="text-[6px] font-mono opacity-40">充电</span>
               </div>
-              <button onClick={handleCableClick} className="flex flex-col items-center space-y-0.5">
+              <button
+                onClick={handleCableClick}
+                disabled={isCleanupPhase && isConnected && !cleanupDone.power}
+                className={cn(
+                  'flex flex-col items-center space-y-0.5',
+                  isCleanupPhase && isConnected && !cleanupDone.power && 'opacity-40 cursor-not-allowed',
+                )}
+              >
                 <div className={cn(
                   "w-9 h-9 border-2 flex items-center justify-center transition-all",
-                  isConnected ? "bg-blue-500 border-blue-600 text-white" : "bg-industrial-bg border-industrial-fg hover:bg-industrial-fg hover:text-white text-industrial-fg"
+                  isConnected
+                    ? "bg-blue-500 border-blue-600 text-white"
+                    : "bg-industrial-bg border-industrial-fg hover:bg-industrial-fg hover:text-white text-industrial-fg",
+                  isCleanupPhase && isConnected && !cleanupDone.power && "pointer-events-none",
                 )}>
                   <span className="text-[8px] font-mono font-bold">{isConnected ? '●' : '○'}</span>
                 </div>
-                <span className={cn("text-[6px] font-mono", isConnected ? "text-blue-600 font-bold" : "opacity-40")}>探头</span>
+                <span className={cn(
+                  "text-[6px] font-mono",
+                  isConnected ? "text-blue-600 font-bold" : "opacity-40",
+                )}>
+                  探头
+                </span>
               </button>
               <div className="flex flex-col items-center space-y-0.5">
                 <div className="w-7 h-7 bg-industrial-bg border-2 border-industrial-fg/30 flex items-center justify-center">
@@ -1059,25 +1111,38 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
                     onClick={openIntervalModal}
                   />
                   <div className="flex space-x-1">
-                    <Button variant="secondary" className="h-7 text-[9px] px-2" onClick={() => {
-                      if (showMovePrompt && isMeasuring && measureType) {
-                        // Advance to next measurement point
-                        const nextPoint = manualPoint + 1;
-                        const step = probe.stepLength;
+                    <Button
+                      variant="secondary"
+                      className="h-7 text-[9px] px-2"
+                      disabled={!isMeasuring || !probeUpward || autoCollecting}
+                      onClick={() => {
+                        if (showMovePrompt && isMeasuring && measureType) {
+                          advanceManualPoint();
+                          return;
+                        }
+                        if (isMeasuring && !autoCollecting) return;
                         setShowMovePrompt(false);
-                        setManualPoint(nextPoint);
-                        setCurrentDepth(TOTAL_DEPTH - nextPoint * step);
-                        startStabilize(nextPoint, measureType);
-                        return;
-                      }
-                      if (isMeasuring && !autoCollecting) return;
-                      setShowMovePrompt(false);
-                      setCurrentDepth(d => Math.max(0, +(d - (parseFloat(monitorInterval) || 0.5)).toFixed(1)));
-                    }}>▲ 上提</Button>
-                    <Button variant="secondary" className="h-7 text-[9px] px-2" onClick={() => {
-                      setShowMovePrompt(false);
-                      setCurrentDepth(d => Math.min(TOTAL_DEPTH, +(d + (parseFloat(monitorInterval) || 0.5)).toFixed(1)));
-                    }}>▼ 下放</Button>
+                        setCurrentDepth(d => Math.max(0, +(d - monitorStep).toFixed(1)));
+                      }}
+                    >
+                      ▲ 上提
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="h-7 text-[9px] px-2"
+                      disabled={!isMeasuring || probeUpward || autoCollecting}
+                      onClick={() => {
+                        if (showMovePrompt && isMeasuring && measureType) {
+                          advanceManualPoint();
+                          return;
+                        }
+                        if (isMeasuring && !autoCollecting) return;
+                        setShowMovePrompt(false);
+                        setCurrentDepth(d => Math.min(TOTAL_DEPTH, +(d + monitorStep).toFixed(1)));
+                      }}
+                    >
+                      ▼ 下放
+                    </Button>
                   </div>
                 </div>
                 <div className="border-l border-industrial-fg/30 pl-3">
@@ -1107,13 +1172,6 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
         </div>
         )}
       </div>
-
-      {/* Cleanup */}
-      {!previewMode && phase >= 5 && phase < 6 && (
-        <div className="flex justify-end">
-          <Button variant="secondary" onClick={enterCleanupPhase} className="text-[10px]">进入收工阶段</Button>
-        </div>
-      )}
 
       {/* Data table modal */}
       <Modal

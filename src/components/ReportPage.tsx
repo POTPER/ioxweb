@@ -359,7 +359,7 @@ const formatItemScore = (score: number, maxScore: number) => `${score}/${maxScor
 
 const formatUserAnswerText = (question: QuestionResult) => {
   if (question.id === 'acq.instrument.cleanupOrder') {
-    if (!question.userAnswer) return '未执行关闭电源';
+    if (!question.userAnswer) return '未作答';
     if (question.userAnswer.includes('先拔除线材')) return '先拔除线材，再关闭电源（未先关闭电源）';
   }
 
@@ -405,7 +405,7 @@ const StepDetail: React.FC<{ step: StepResult; showScores?: boolean }> = ({
             <div className="p-2 space-y-2">
               {step.questions.map((q) => {
                 const isAnswered = isQuestionAnswered(q);
-                const showDetail = showScores ? !q.correct && isAnswered : isAnswered;
+                const showDetail = !q.correct && isAnswered;
                 const userAnswerText = formatUserAnswerText(q);
                 const correctAnswerText = q.correctAnswer || '详见评分规则';
                 const analysisText = q.analysis || q.explanation || '暂无解析，请参考标准答案与评分规则。';
@@ -417,10 +417,12 @@ const StepDetail: React.FC<{ step: StepResult; showScores?: boolean }> = ({
                       !showDetail && "border-b-0"
                     )}>
                       <div className="flex items-center space-x-2 w-[120px] md:w-[160px] shrink-0">
-                        {showScores && (
+                        {(showScores || (isAnswered && q.correct)) && (
                           q.correct
                             ? <CheckCircle2 size={12} className="shrink-0 text-green-500" />
-                            : <XCircle size={12} className="shrink-0 text-red-500" />
+                            : showScores
+                              ? <XCircle size={12} className="shrink-0 text-red-500" />
+                              : null
                         )}
                         <span className="truncate font-bold">{q.label}</span>
                       </div>

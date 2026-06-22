@@ -11,6 +11,7 @@ export interface PracticeInstrument {
   available: boolean;
   taskInfo: { label: string; value: string }[];
   appStepId?: '9';
+  taskDescription?: string;
 }
 
 export const PRACTICE_INSTRUMENTS: PracticeInstrument[] = [
@@ -41,6 +42,8 @@ export const PRACTICE_INSTRUMENTS: PracticeInstrument[] = [
     name: '测斜仪',
     available: true,
     appStepId: '9',
+    taskDescription:
+      '本项目为一座开挖深度约 20 m 的基坑，需对围护结构开展深层水平位移测斜监测。本期观测对象为 03 区 06 号测斜孔（孔号 06，标准编号 CX-06），测量编号 03。查阅上期观测记录，该孔正测时测斜仪线材靠齐西侧。请使用读数仪，按规范完成设备设置、线材连接、正反测采集及数据记录的全部操作流程。',
     taskInfo: [
       { label: '监测对象', value: '深基坑/边坡' },
       { label: '监测目的', value: '监测内部水平位移' },

@@ -166,7 +166,7 @@ function AppInner() {
       case '6': return <ConnectivityTest onNext={handleStepComplete} />;
       case '7': return <InitialMeasurement onNext={handleStepComplete} />;
       case '8': return <PrepAndSafety onNext={handleStepComplete} />;
-      case '9': return <InstrumentSetting onNext={handleStepComplete} onProgress={handleStepProgress} />;
+      case '9': return <InstrumentSetting manualSubmit onNext={handleStepComplete} onProgress={handleStepProgress} />;
       case '10': return <DataProcessing onNext={handleStepComplete} />;
       case '11': return <ReportCompilation onNext={handleStepComplete} />;
       case '12': return <MultiPeriodAnalysis onNext={handleStepComplete} />;
