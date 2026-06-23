@@ -23,7 +23,7 @@ interface Reading {
   checksum: number | null;
 }
 
-type Phase = 1 | 2 | 3 | 4 | 5 | 6;
+type Phase = 1 | 2 | 3 | 4 | 5;
 type LcdScreen = 'off' | 'main' | 'params' | 'probe' | 'confirm-fwd' | 'confirm-rev' | 'collect' | 'remeasure' | 'auto-collect' | 'time-setting';
 
 const DATA_PERIOD = 6;
@@ -734,13 +734,6 @@ export const InstrumentSetting = forwardRef<InstrumentSettingHandle, InstrumentS
     setShowIntervalModal(false);
     setPendingInterval('');
   };
-
-  // --- Cleanup phase check ---
-  useEffect(() => {
-    if (phase >= 5 && !isMeasuring && !autoCollecting && lcdScreen === 'main') {
-      // Phase 6 unlocked after reverse done
-    }
-  }, [phase, isMeasuring, autoCollecting, lcdScreen]);
 
   const handleSubmit = useCallback(() => {
     onNext(buildScoreData(recordedAnswersRef.current));

@@ -269,7 +269,7 @@
     "记点动作为稳定倒计时结束后按 OK，非 Record 键",
     "现场布置（朝向、靠齐、间距）在 Web 平面图/剖面区完成，非 LCD 内设置"
   ],
-  "flowMermaid": "flowchart LR\n  off[\"关机 off\"] --> boot[\"启动 boot\"]\n  boot --> main[\"主菜单 main\"]\n  main --> params[\"测孔参数 params\"]\n  main --> probe[\"探头设置 probe\"]\n  main --> time[\"时间 time-setting\"]\n  main --> remeasure[\"补测 remeasure\"]\n  main --> cfwd[\"正测确认 confirm-fwd\"]\n  params --> main\n  probe --> main\n  time --> main\n  remeasure --> main\n  cfwd --> collF[\"正向采集 collect\"]\n  collF --> crev[\"反测确认 confirm-rev\"]\n  crev --> collR[\"反向采集 collect\"]\n  collR --> main\n  main --> cleanup[\"收工 phase6\"]\n  cleanup --> submit[\"自动提交\"]",
+  "flowMermaid": "flowchart LR\n  off[\"关机 off\"] --> boot[\"启动 boot\"]\n  boot --> main[\"主菜单 main\"]\n  main --> params[\"测孔参数 params\"]\n  main --> probe[\"探头设置 probe\"]\n  main --> time[\"时间 time-setting\"]\n  main --> remeasure[\"补测 remeasure\"]\n  main --> cfwd[\"正测确认 confirm-fwd\"]\n  params --> main\n  probe --> main\n  time --> main\n  remeasure --> main\n  cfwd --> collF[\"正向采集 collect\"]\n  collF --> crev[\"反测确认 confirm-rev\"]\n  crev --> collR[\"反向采集 collect\"]\n  collR --> main\n  main --> cleanup[\"收工 先关机再拔线\"]\n  cleanup --> manualSubmit[\"用户手动提交\"]",
   "screens": [
     {
       "id": "S01",
@@ -827,30 +827,25 @@
       "lcdScreen": "main / off",
       "wireframeRefs": "I1-I7",
       "mockupLines": [
-        "（phase 5 完成后）",
-        "点击「进入收工阶段」→ phase 6",
+        "（phase 5 完成后，主菜单）",
         "",
         "1. ⏻ 关机 → LCD 熄灭",
         "2. 探头口拔线 → ○",
-        "→ 自动提交本步成绩"
+        "3. 练习：点击「提交练习」/ 实训：侧栏进入下一步"
       ],
       "initialState": [
         "反测完成且回主菜单后 phase = 5",
-        "点击收工按钮后 phase = 6",
+        "电源仍开、线材仍连",
         "cleanupDone.power / cable 均为 false"
       ],
       "interactions": [
         {
-          "control": "进入收工阶段",
-          "action": "phase → 6（Web 区按钮）"
-        },
-        {
           "control": "⏻ 电源",
-          "action": "关机，记录「关闭电源」"
+          "action": "关机，记录收工顺序（cleanupOrder）"
         },
         {
           "control": "探头口",
-          "action": "拔线，记录「拔除线材」"
+          "action": "拔线（须先关机），记录「拔除线材」"
         },
         {
           "control": "顺序要求",
@@ -859,12 +854,123 @@
       ],
       "transitions": [
         {
-          "to": "自动提交",
-          "when": "关机且拔线均完成 → onNext()"
+          "to": "练习报告 / Step10",
+          "when": "用户手动提交练习或侧栏进入下一步（非自动）"
         }
       ]
     }
-  ]
+  ],
+  "practiceFlow": {
+    "docPath": ".doc/练习模式时序图.md",
+    "objects": [
+      {
+        "id": "user",
+        "label": "学员",
+        "code": "—",
+        "layer": "L0",
+        "role": "操作者"
+      },
+      {
+        "id": "hub",
+        "label": "练习首页",
+        "code": "PracticeHub",
+        "layer": "L1",
+        "role": "选仪器、看任务摘要、点「开始练习」、显示已完成标记"
+      },
+      {
+        "id": "session",
+        "label": "练习页",
+        "code": "PracticeSession + InstrumentSetting",
+        "layer": "L1",
+        "role": "一次练习的主界面；内含四板块"
+      },
+      {
+        "id": "report",
+        "label": "练习报告",
+        "code": "ReportPage variant=\"practice\"",
+        "layer": "L1",
+        "role": "展示得分与错题"
+      },
+      {
+        "id": "storage",
+        "label": "本地存储",
+        "code": "practiceStorage",
+        "layer": "L1",
+        "role": "进度 progress、结果 results、完成列表 completed"
+      },
+      {
+        "id": "profile",
+        "label": "测斜管剖面",
+        "code": "Step9 左栏",
+        "layer": "L2",
+        "role": "深度、间距、上提/下放、采集表"
+      },
+      {
+        "id": "plane",
+        "label": "测斜管平面",
+        "code": "Step9 planeView",
+        "layer": "L2",
+        "role": "朝向选择（W 靠齐等）"
+      },
+      {
+        "id": "instrument",
+        "label": "读数仪",
+        "code": "Step9 deviceView",
+        "layer": "L2",
+        "role": "接线、LCD、按键、电源、采集、收工"
+      },
+      {
+        "id": "task",
+        "label": "任务说明",
+        "code": "practicePanel 右栏",
+        "layer": "L2",
+        "role": "题目说明、「提交练习」按钮"
+      },
+      {
+        "id": "cache",
+        "label": "答案缓存",
+        "code": "recordedAnswersRef",
+        "layer": "L3",
+        "role": "运行时记答案，提交时读取"
+      }
+    ],
+    "mainParticipants": [
+      "学员",
+      "练习首页",
+      "练习页",
+      "本地存储",
+      "练习报告"
+    ],
+    "detailParticipants": [
+      "学员",
+      "测斜管剖面",
+      "测斜管平面",
+      "读数仪",
+      "任务说明",
+      "答案缓存"
+    ],
+    "hierarchyMermaid": "flowchart TB\n  subgraph L0 [L0 角色]\n    User[学员]\n  end\n\n  subgraph L1 [L1 页面流程]\n    Hub[练习首页]\n    Session[练习页]\n    Report[练习报告]\n    Storage[本地存储]\n  end\n\n  subgraph L2 [L2 练习页四板块]\n    D[测斜管剖面]\n    M[测斜管平面]\n    I[读数仪]\n    Task[任务说明]\n  end\n\n  subgraph L3 [L3 内部机制可选]\n    Cache[答案缓存]\n  end\n\n  User --> Hub\n  Hub --> Session\n  Session --> D\n  Session --> M\n  Session --> I\n  Session --> Task\n  D --> Cache\n  M --> Cache\n  I --> Cache\n  Task --> Cache\n  Cache --> Storage\n  Session --> Report\n  Report --> Hub\n  Hub --> User",
+    "mainSequenceMermaid": "sequenceDiagram\n  participant U as 学员\n  participant Hub as 练习首页\n  participant Page as 练习页\n  participant LS as 本地存储\n  participant Rpt as 练习报告\n\n  U->>Hub: 进入练习系统\n  Hub->>LS: 读取已完成仪器列表\n  LS-->>Hub: completed / progress\n  U->>Hub: 选择仪器并点击开始练习\n  Hub->>Page: 进入练习页\n\n  loop 练习过程中\n    U->>Page: 操作四板块\n    Page->>LS: 保存进度 savePracticeProgress\n  end\n\n  U->>Page: 点击提交练习并确认\n  Page->>Page: 汇总答案缓存并评分\n  Page->>LS: 保存结果 savePracticeResult\n  Page->>Rpt: 生成并展示练习报告\n\n  U->>Rpt: 查看报告\n  U->>Rpt: 返回\n  Rpt->>Hub: 回到练习首页\n  U->>Hub: 返回退出练习系统",
+    "detailSequenceMermaid": "sequenceDiagram\n  participant U as 学员\n  participant D as 测斜管剖面\n  participant M as 测斜管平面\n  participant I as 读数仪\n  participant T as 任务说明\n  participant C as 答案缓存\n\n  Note over U,C: 阶段1 现场准备\n  U->>M: 选择朝向\n  M->>C: 记录朝向答案\n  U->>I: 连接线缆、开机\n  I->>C: 记录接线/开机答案\n\n  Note over U,C: 阶段2-5 参数与采集\n  U->>I: 设置参数、确认测量\n  I->>C: 记录参数类答案\n  U->>D: 设置间距、上提/下放\n  D->>I: 深度与测点联动\n  U->>I: 采集读数\n  I->>C: 记录读数答案\n\n  Note over U,C: 收工\n  U->>I: 关电源、拔线\n  I->>C: 记录收工顺序\n\n  Note over U,C: 提交\n  U->>T: 点击提交练习\n  T->>I: 调用 submit\n  I->>C: 读取全部答案\n  I-->>T: 返回评分数据",
+    "messageRouting": [
+      {
+        "control": "选 W 靠齐",
+        "action": "测斜管平面"
+      },
+      {
+        "control": "设间距、上提/下放",
+        "action": "测斜管剖面"
+      },
+      {
+        "control": "接线、LCD、采集、收工",
+        "action": "读数仪"
+      },
+      {
+        "control": "提交练习",
+        "action": "任务说明 → 读数仪 submit"
+      }
+    ]
+  }
 }</script>
   <script>
     const DATA = JSON.parse(document.getElementById('step09-data').textContent);

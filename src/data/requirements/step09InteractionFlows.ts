@@ -1,6 +1,9 @@
 /**
  * Step9 读数仪 LCD 逐屏交互说明 — 单一事实来源
  * 供 .doc/读数仪交互逻辑.md 与 docs/step09-instrument-interaction.html 共用
+ *
+ * 练习模式全流程对象与时序图见 PRACTICE_FLOW_* 常量
+ * 文档：.doc/练习模式时序图.md（与 Step9 图 B 四板块展开互补）
  */
 
 export type InteractionControl = {
@@ -411,28 +414,178 @@ export const step09InteractionScreens: InteractionScreen[] = [
     lcdScreen: 'main / off',
     wireframeRefs: 'I1-I7',
     mockupLines: [
-      '（phase 5 完成后）',
-      '点击「进入收工阶段」→ phase 6',
+      '（phase 5 完成后，主菜单）',
       '',
       '1. ⏻ 关机 → LCD 熄灭',
       '2. 探头口拔线 → ○',
-      '→ 自动提交本步成绩',
+      '3. 练习：点击「提交练习」/ 实训：侧栏进入下一步',
     ],
     initialState: [
       '反测完成且回主菜单后 phase = 5',
-      '点击收工按钮后 phase = 6',
+      '电源仍开、线材仍连',
       'cleanupDone.power / cable 均为 false',
     ],
     interactions: [
-      { control: '进入收工阶段', action: 'phase → 6（Web 区按钮）' },
-      { control: '⏻ 电源', action: '关机，记录「关闭电源」' },
-      { control: '探头口', action: '拔线，记录「拔除线材」' },
+      { control: '⏻ 电源', action: '关机，记录收工顺序（cleanupOrder）' },
+      { control: '探头口', action: '拔线（须先关机），记录「拔除线材」' },
       { control: '顺序要求', action: '必须先关机再拔线（cleanupOrder）' },
     ],
     transitions: [
-      { to: '自动提交', when: '关机且拔线均完成 → onNext()' },
+      { to: '练习报告 / Step10', when: '用户手动提交练习或侧栏进入下一步（非自动）' },
     ],
   },
+];
+
+/** 练习模式全流程文档路径（与 .doc/读数仪交互逻辑.md 并列） */
+export const PRACTICE_FLOW_DOC_PATH = '.doc/练习模式时序图.md';
+
+export type PracticeFlowObject = {
+  id: string;
+  label: string;
+  code: string;
+  layer: 'L0' | 'L1' | 'L2' | 'L3';
+  role: string;
+};
+
+/** 练习模式全流程文档 — 对象表、图 A/B mermaid、消息归属；详见 PRACTICE_FLOW_DOC_PATH */
+export const PRACTICE_FLOW_OBJECTS: PracticeFlowObject[] = [
+  { id: 'user', label: '学员', code: '—', layer: 'L0', role: '操作者' },
+  { id: 'hub', label: '练习首页', code: 'PracticeHub', layer: 'L1', role: '选仪器、看任务摘要、点「开始练习」、显示已完成标记' },
+  { id: 'session', label: '练习页', code: 'PracticeSession + InstrumentSetting', layer: 'L1', role: '一次练习的主界面；内含四板块' },
+  { id: 'report', label: '练习报告', code: 'ReportPage variant="practice"', layer: 'L1', role: '展示得分与错题' },
+  { id: 'storage', label: '本地存储', code: 'practiceStorage', layer: 'L1', role: '进度 progress、结果 results、完成列表 completed' },
+  { id: 'profile', label: '测斜管剖面', code: 'Step9 左栏', layer: 'L2', role: '深度、间距、上提/下放、采集表' },
+  { id: 'plane', label: '测斜管平面', code: 'Step9 planeView', layer: 'L2', role: '朝向选择（W 靠齐等）' },
+  { id: 'instrument', label: '读数仪', code: 'Step9 deviceView', layer: 'L2', role: '接线、LCD、按键、电源、采集、收工' },
+  { id: 'task', label: '任务说明', code: 'practicePanel 右栏', layer: 'L2', role: '题目说明、「提交练习」按钮' },
+  { id: 'cache', label: '答案缓存', code: 'recordedAnswersRef', layer: 'L3', role: '运行时记答案，提交时读取' },
+];
+
+/** 图 A participant：学员 | 练习首页 | 练习页 | 本地存储 | 练习报告 */
+export const PRACTICE_FLOW_MAIN_PARTICIPANTS = [
+  '学员',
+  '练习首页',
+  '练习页',
+  '本地存储',
+  '练习报告',
+] as const;
+
+/** 图 B participant：学员 | 测斜管剖面 | 测斜管平面 | 读数仪 | 任务说明 | 答案缓存 */
+export const PRACTICE_FLOW_DETAIL_PARTICIPANTS = [
+  '学员',
+  '测斜管剖面',
+  '测斜管平面',
+  '读数仪',
+  '任务说明',
+  '答案缓存',
+] as const;
+
+export const PRACTICE_FLOW_HIERARCHY_MERMAID = `flowchart TB
+  subgraph L0 [L0 角色]
+    User[学员]
+  end
+
+  subgraph L1 [L1 页面流程]
+    Hub[练习首页]
+    Session[练习页]
+    Report[练习报告]
+    Storage[本地存储]
+  end
+
+  subgraph L2 [L2 练习页四板块]
+    D[测斜管剖面]
+    M[测斜管平面]
+    I[读数仪]
+    Task[任务说明]
+  end
+
+  subgraph L3 [L3 内部机制可选]
+    Cache[答案缓存]
+  end
+
+  User --> Hub
+  Hub --> Session
+  Session --> D
+  Session --> M
+  Session --> I
+  Session --> Task
+  D --> Cache
+  M --> Cache
+  I --> Cache
+  Task --> Cache
+  Cache --> Storage
+  Session --> Report
+  Report --> Hub
+  Hub --> User`;
+
+/** 图 A：主流程（进入 → 完成 → 退出）；练习页为黑盒 */
+export const PRACTICE_FLOW_MAIN_SEQUENCE_MERMAID = `sequenceDiagram
+  participant U as 学员
+  participant Hub as 练习首页
+  participant Page as 练习页
+  participant LS as 本地存储
+  participant Rpt as 练习报告
+
+  U->>Hub: 进入练习系统
+  Hub->>LS: 读取已完成仪器列表
+  LS-->>Hub: completed / progress
+  U->>Hub: 选择仪器并点击开始练习
+  Hub->>Page: 进入练习页
+
+  loop 练习过程中
+    U->>Page: 操作四板块
+    Page->>LS: 保存进度 savePracticeProgress
+  end
+
+  U->>Page: 点击提交练习并确认
+  Page->>Page: 汇总答案缓存并评分
+  Page->>LS: 保存结果 savePracticeResult
+  Page->>Rpt: 生成并展示练习报告
+
+  U->>Rpt: 查看报告
+  U->>Rpt: 返回
+  Rpt->>Hub: 回到练习首页
+  U->>Hub: 返回退出练习系统`;
+
+/** 图 B：练习页内四板块展开；LCD 逐屏细节见 step09InteractionScreens */
+export const PRACTICE_FLOW_DETAIL_SEQUENCE_MERMAID = `sequenceDiagram
+  participant U as 学员
+  participant D as 测斜管剖面
+  participant M as 测斜管平面
+  participant I as 读数仪
+  participant T as 任务说明
+  participant C as 答案缓存
+
+  Note over U,C: 阶段1 现场准备
+  U->>M: 选择朝向
+  M->>C: 记录朝向答案
+  U->>I: 连接线缆、开机
+  I->>C: 记录接线/开机答案
+
+  Note over U,C: 阶段2-5 参数与采集
+  U->>I: 设置参数、确认测量
+  I->>C: 记录参数类答案
+  U->>D: 设置间距、上提/下放
+  D->>I: 深度与测点联动
+  U->>I: 采集读数
+  I->>C: 记录读数答案
+
+  Note over U,C: 收工
+  U->>I: 关电源、拔线
+  I->>C: 记录收工顺序
+
+  Note over U,C: 提交
+  U->>T: 点击提交练习
+  T->>I: 调用 submit
+  I->>C: 读取全部答案
+  I-->>T: 返回评分数据`;
+
+/** 练习页内消息归属（图 B 补充） */
+export const PRACTICE_FLOW_MESSAGE_ROUTING: InteractionControl[] = [
+  { control: '选 W 靠齐', action: '测斜管平面' },
+  { control: '设间距、上提/下放', action: '测斜管剖面' },
+  { control: '接线、LCD、采集、收工', action: '读数仪' },
+  { control: '提交练习', action: '任务说明 → 读数仪 submit' },
 ];
 
 export const STEP9_LCD_FLOW_MERMAID = `flowchart LR
@@ -451,8 +604,8 @@ export const STEP9_LCD_FLOW_MERMAID = `flowchart LR
   collF --> crev["反测确认 confirm-rev"]
   crev --> collR["反向采集 collect"]
   collR --> main
-  main --> cleanup["收工 phase6"]
-  cleanup --> submit["自动提交"]`;
+  main --> cleanup["收工 先关机再拔线"]
+  cleanup --> manualSubmit["用户手动提交"]`;
 
 /** 生成 Markdown 逐屏章节 */
 export function renderScreenMarkdown(screen: InteractionScreen): string {
@@ -572,6 +725,14 @@ ${screens}
 | 手测深度 | 20.0 → 18.0 m（5 点） |
 | 补测 | 05 组 / 12.5 m / 反测 |
 | 收工顺序 | 先关电源，再拔线 |
+
+## 10. 练习模式全流程（交叉引用）
+
+练习模式对象分层、主流程时序图（图 A）与练习页四板块展开（图 B）见 [练习模式时序图.md](./练习模式时序图.md)。
+
+- 图 A participant：${PRACTICE_FLOW_MAIN_PARTICIPANTS.join(' | ')}
+- 图 B participant：${PRACTICE_FLOW_DETAIL_PARTICIPANTS.join(' | ')}
+- 练习页四板块与 §1 布局区 D/M/I 对应；任务说明为练习模式 practicePanel 右栏
 `;
 }
 
@@ -583,5 +744,15 @@ export function exportStep09InteractionJson(): string {
     referenceDiffs: STEP9_REFERENCE_DIFFS,
     flowMermaid: STEP9_LCD_FLOW_MERMAID,
     screens: step09InteractionScreens,
+    practiceFlow: {
+      docPath: PRACTICE_FLOW_DOC_PATH,
+      objects: PRACTICE_FLOW_OBJECTS,
+      mainParticipants: PRACTICE_FLOW_MAIN_PARTICIPANTS,
+      detailParticipants: PRACTICE_FLOW_DETAIL_PARTICIPANTS,
+      hierarchyMermaid: PRACTICE_FLOW_HIERARCHY_MERMAID,
+      mainSequenceMermaid: PRACTICE_FLOW_MAIN_SEQUENCE_MERMAID,
+      detailSequenceMermaid: PRACTICE_FLOW_DETAIL_SEQUENCE_MERMAID,
+      messageRouting: PRACTICE_FLOW_MESSAGE_ROUTING,
+    },
   }, null, 2);
 }

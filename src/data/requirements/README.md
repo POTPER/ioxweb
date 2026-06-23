@@ -6,7 +6,7 @@
 src/data/requirements/
 ├── README.md                      # 本说明文档
 ├── pages.csv                      # 需求文档内容（Markdown 格式）
-├── step09InteractionFlows.ts      # Q09 读数仪逐屏交互说明（单一事实来源）
+├── step09InteractionFlows.ts      # Q09 读数仪逐屏交互说明 + 练习模式流程对象（单一事实来源）
 ├── step09Snapshots.ts             # Step9 状态快照（Studio / dev 预览）
 ├── step09-checkpoints.csv         # Step9 检查点说明文案
 └── step09CheckpointsData.ts       # 检查点加载与导出
@@ -18,9 +18,16 @@ src/data/requirements/
 |------|------|------|
 | Markdown | `.doc/读数仪交互逻辑.md` | 整体布局 + 逐屏「初始状态 / 交互说明」 |
 | 打印版 HTML | `docs/step09-instrument-interaction.html` | 浏览器打开可打印 / 导出 PDF |
-| 数据源 | `step09InteractionFlows.ts` | 12 屏 mockup、控件表、流程图 |
+| 数据源 | `step09InteractionFlows.ts` | 12 屏 mockup、控件表、流程图、练习模式 `PRACTICE_FLOW_*` |
 
-修改交互说明后运行：
+### 练习模式全流程时序图
+
+| 产物 | 路径 | 说明 |
+|------|------|------|
+| Markdown | `.doc/练习模式时序图.md` | 对象分层 + 图 A 主流程 + 图 B 四板块展开 |
+| 数据源 | `step09InteractionFlows.ts` | `PRACTICE_FLOW_OBJECTS`、主/详时序 mermaid |
+
+修改 Step9 交互说明后运行：
 
 ```bash
 npm run doc:step09

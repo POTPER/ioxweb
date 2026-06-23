@@ -3,7 +3,7 @@
  * 快照 = 可序列化的 React 状态，非截图
  */
 
-export type Step9Phase = 1 | 2 | 3 | 4 | 5 | 6;
+export type Step9Phase = 1 | 2 | 3 | 4 | 5;
 
 export type Step9LcdScreen =
   | 'off'
@@ -310,7 +310,7 @@ export const STEP9_SNAPSHOTS: Step9Snapshot[] = [
     title: '收工',
     subtitle: '先关电源，再拔线材',
     tags: ['cleanup'],
-    phase: 6,
+    phase: 5,
     isPoweredOn: true,
     isConnected: true,
     lcdScreen: 'main',
